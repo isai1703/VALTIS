@@ -1,0 +1,26 @@
+# Gradle
+.gradle/
+**/build/
+
+# Local Android SDK
+local.properties
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store
+
+# Kotlin
+.kotlin/
+
+# APKs
+*.apk
+*.aab
+
+# Secrets
+*.jks
+*.keystore
+*.pem
+*.p12

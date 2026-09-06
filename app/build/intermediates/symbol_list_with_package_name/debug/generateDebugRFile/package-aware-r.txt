@@ -1,0 +1,2 @@
+com.multiservicios.valtis
+style Theme_Valtis

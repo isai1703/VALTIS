@@ -26,10 +26,9 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK components
+      - name: Show available Android 37 packages
         run: |
-          sdkmanager --channel=3 "platforms;android-37"
-          sdkmanager --channel=3 "build-tools;37.0.0"
+          sdkmanager --list --channel=3 | grep -E "android-37|build-tools;37" || true
 
       - name: Grant execute permission
         run: chmod +x gradlew

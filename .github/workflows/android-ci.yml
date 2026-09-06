@@ -28,7 +28,8 @@ jobs:
 
       - name: Install Android SDK components
         run: |
-          sdkmanager --channel=1 "platforms;android-37" "build-tools;37.0.0"
+          sdkmanager --channel=3 "platforms;android-37"
+          sdkmanager --channel=3 "build-tools;37.0.0"
 
       - name: Grant execute permission
         run: chmod +x gradlew

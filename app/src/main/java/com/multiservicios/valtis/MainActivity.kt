@@ -5,12 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -31,20 +26,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
-private val ValtisDeep = Color(0xFF04111B)
-private val ValtisBlue = Color(0xFF0A2B40)
+private val ValtisBlue = Color(0xFF0B304A)
 private val ValtisWhite = Color.White
 
 class MainActivity : ComponentActivity() {
@@ -61,7 +52,9 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ValtisApp() {
 
-    var showSplash by remember { mutableStateOf(true) }
+    var showSplash by remember {
+        mutableStateOf(true)
+    }
 
     LaunchedEffect(Unit) {
         delay(4700)
@@ -70,8 +63,12 @@ fun ValtisApp() {
 
     AnimatedVisibility(
         visible = showSplash,
-        enter = fadeIn(tween(350)),
-        exit = fadeOut(tween(800))
+        enter = fadeIn(
+            animationSpec = tween(350)
+        ),
+        exit = fadeOut(
+            animationSpec = tween(800)
+        )
     ) {
         ValtisSplash()
     }
@@ -84,7 +81,9 @@ fun ValtisApp() {
 @Composable
 fun ValtisSplash() {
 
-    var startAnimation by remember { mutableStateOf(false) }
+    var startAnimation by remember {
+        mutableStateOf(false)
+    }
 
     LaunchedEffect(Unit) {
         startAnimation = true
@@ -93,7 +92,7 @@ fun ValtisSplash() {
     val logoAlpha by animateFloatAsState(
         targetValue = if (startAnimation) 1f else 0f,
         animationSpec = tween(
-            durationMillis = 1100,
+            durationMillis = 1000,
             easing = FastOutSlowInEasing
         ),
         label = "logoAlpha"
@@ -102,120 +101,33 @@ fun ValtisSplash() {
     val logoScale by animateFloatAsState(
         targetValue = if (startAnimation) 1f else 0.88f,
         animationSpec = tween(
-            durationMillis = 1300,
+            durationMillis = 1250,
             easing = FastOutSlowInEasing
         ),
         label = "logoScale"
     )
 
-    val infinite = rememberInfiniteTransition(
-        label = "ValtisPremiumGlow"
-    )
-
-    val glowAlpha by infinite.animateFloat(
-        initialValue = 0.10f,
-        targetValue = 0.24f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = 1900,
-                easing = LinearEasing
-            ),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "glowAlpha"
-    )
-
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.radialGradient(
-                    colors = listOf(
-                        ValtisBlue.copy(alpha = 0.95f),
-                        ValtisDeep.copy(alpha = 0.98f),
-                        Color.Black
-                    ),
-                    radius = 1050f
-                )
-            ),
+            .background(ValtisBlue),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
 
-        androidx.compose.ui.layout.Layout(
-            content = {
-
-                // Halo suave detrás del logo.
-                // Blanco para reforzar el contraste del logotipo original.
-                Image(
-                    painter = painterResource(
-                        id = R.drawable.valtis_logo_transparent
-                    ),
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .graphicsLayer(
-                            scaleX = logoScale * 1.015f,
-                            scaleY = logoScale * 1.015f
-                        )
-                        .alpha(glowAlpha * logoAlpha)
-                        .blur(38.dp)
+        Image(
+            painter = painterResource(
+                id = R.drawable.valtis_logo_transparent
+            ),
+            contentDescription = "VALTIS",
+            contentScale = ContentScale.Fit,
+            modifier = Modifier
+                .graphicsLayer(
+                    scaleX = logoScale,
+                    scaleY = logoScale
                 )
-
-                // Logo oficial sin modificar sus colores.
-                Image(
-                    painter = painterResource(
-                        id = R.drawable.valtis_logo_transparent
-                    ),
-                    contentDescription = "VALTIS",
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .graphicsLayer(
-                            scaleX = logoScale,
-                            scaleY = logoScale
-                        )
-                        .alpha(logoAlpha)
-                )
-
-            }
-        ) { measurables, constraints ->
-
-            // Un poco más de presencia visual.
-            val width = (constraints.maxWidth * 0.91f).toInt()
-
-            val height = (width * 832f / 1259f).toInt()
-
-            val logoConstraints = Constraints.fixed(
-                width,
-                height
-            )
-
-            val glow = measurables[0].measure(
-                logoConstraints
-            )
-
-            val logo = measurables[1].measure(
-                logoConstraints
-            )
-
-            layout(
-                width = constraints.maxWidth,
-                height = height
-            ) {
-
-                val x = (constraints.maxWidth - width) / 2
-
-                glow.place(
-                    x = x,
-                    y = 0
-                )
-
-                logo.place(
-                    x = x,
-                    y = 0
-                )
-            }
-        }
+                .alpha(logoAlpha)
+        )
     }
 }
 
@@ -225,7 +137,7 @@ private fun ValtisHomePlaceholder() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(ValtisDeep),
+            .background(ValtisBlue),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -237,7 +149,9 @@ private fun ValtisHomePlaceholder() {
             fontWeight = FontWeight.Bold
         )
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(
+            modifier = Modifier.height(10.dp)
+        )
 
         Text(
             text = "Dashboard",

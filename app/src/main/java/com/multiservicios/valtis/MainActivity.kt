@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -106,6 +107,15 @@ fun ValtisSplash() {
         label = "splashScale"
     )
 
+    val glowAlpha by animateFloatAsState(
+        targetValue = if (startAnimation) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = 1700,
+            easing = FastOutSlowInEasing
+        ),
+        label = "splashGlow"
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -115,7 +125,13 @@ fun ValtisSplash() {
 
         Box(
             modifier = Modifier
-                .size(310.dp, 205.dp)
+                .size(340.dp, 225.dp)
+                .drawBehind {
+                    drawCircle(
+                        color = ValtisWhite.copy(alpha = glowAlpha * 0.07f),
+                        radius = size.minDimension * 0.48f
+                    )
+                }
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
@@ -151,7 +167,7 @@ fun ValtisSplash() {
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .offset(y = 135.dp)
+                    .offset(y = 138.dp)
             )
 
             Text(

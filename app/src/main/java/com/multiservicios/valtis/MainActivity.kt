@@ -4,27 +4,23 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.foundation.background
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -35,20 +31,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
-private val ValtisDeep = Color(0xFF071D2D)
-private val ValtisBlue = Color(0xFF0B304A)
-private val ValtisLogoBlue = Color(0xFF123B55)
-private val ValtisGold = Color(0xFFC9A95A)
-private val ValtisWhite = Color(0xFFFFFFFF)
-private val ValtisGray = Color(0xFFE8EDF1)
+private val ValtisDeep = Color(0xFF04111B)
+private val ValtisBlue = Color(0xFF0A2B40)
+private val ValtisWhite = Color.White
 
 class MainActivity : ComponentActivity() {
 
@@ -86,6 +83,7 @@ fun ValtisApp() {
 
 @Composable
 fun ValtisSplash() {
+
     var startAnimation by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -94,23 +92,34 @@ fun ValtisSplash() {
 
     val logoAlpha by animateFloatAsState(
         targetValue = if (startAnimation) 1f else 0f,
-        animationSpec = tween(1000),
+        animationSpec = tween(
+            durationMillis = 1100,
+            easing = FastOutSlowInEasing
+        ),
         label = "logoAlpha"
     )
 
     val logoScale by animateFloatAsState(
-        targetValue = if (startAnimation) 1f else 0.84f,
-        animationSpec = tween(1250, easing = FastOutSlowInEasing),
+        targetValue = if (startAnimation) 1f else 0.88f,
+        animationSpec = tween(
+            durationMillis = 1300,
+            easing = FastOutSlowInEasing
+        ),
         label = "logoScale"
     )
 
-    val infinite = rememberInfiniteTransition(label = "ValtisGlow")
+    val infinite = rememberInfiniteTransition(
+        label = "ValtisPremiumGlow"
+    )
 
     val glowAlpha by infinite.animateFloat(
-        initialValue = 0.18f,
-        targetValue = 0.38f,
+        initialValue = 0.10f,
+        targetValue = 0.24f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = LinearEasing),
+            animation = tween(
+                durationMillis = 1900,
+                easing = LinearEasing
+            ),
             repeatMode = RepeatMode.Reverse
         ),
         label = "glowAlpha"
@@ -122,10 +131,11 @@ fun ValtisSplash() {
             .background(
                 Brush.radialGradient(
                     colors = listOf(
-                        ValtisBlue.copy(alpha = 0.82f),
-                        ValtisDeep,
+                        ValtisBlue.copy(alpha = 0.95f),
+                        ValtisDeep.copy(alpha = 0.98f),
                         Color.Black
-                    )
+                    ),
+                    radius = 1050f
                 )
             ),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -135,6 +145,8 @@ fun ValtisSplash() {
         androidx.compose.ui.layout.Layout(
             content = {
 
+                // Halo suave detrás del logo.
+                // Blanco para reforzar el contraste del logotipo original.
                 Image(
                     painter = painterResource(
                         id = R.drawable.valtis_logo_transparent
@@ -143,13 +155,14 @@ fun ValtisSplash() {
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
                         .graphicsLayer(
-                            scaleX = logoScale,
-                            scaleY = logoScale
+                            scaleX = logoScale * 1.015f,
+                            scaleY = logoScale * 1.015f
                         )
                         .alpha(glowAlpha * logoAlpha)
-                        .blur(28.dp)
+                        .blur(38.dp)
                 )
 
+                // Logo oficial sin modificar sus colores.
                 Image(
                     painter = painterResource(
                         id = R.drawable.valtis_logo_transparent
@@ -163,30 +176,33 @@ fun ValtisSplash() {
                         )
                         .alpha(logoAlpha)
                 )
+
             }
         ) { measurables, constraints ->
 
-            val width = (constraints.maxWidth * 0.84f).toInt()
+            // Un poco más de presencia visual.
+            val width = (constraints.maxWidth * 0.91f).toInt()
+
             val height = (width * 832f / 1259f).toInt()
 
+            val logoConstraints = Constraints.fixed(
+                width,
+                height
+            )
+
             val glow = measurables[0].measure(
-                androidx.compose.ui.unit.Constraints.fixed(
-                    width,
-                    height
-                )
+                logoConstraints
             )
 
             val logo = measurables[1].measure(
-                androidx.compose.ui.unit.Constraints.fixed(
-                    width,
-                    height
-                )
+                logoConstraints
             )
 
             layout(
                 width = constraints.maxWidth,
                 height = height
             ) {
+
                 val x = (constraints.maxWidth - width) / 2
 
                 glow.place(
@@ -203,7 +219,6 @@ fun ValtisSplash() {
     }
 }
 
-
 @Composable
 private fun ValtisHomePlaceholder() {
 
@@ -217,7 +232,7 @@ private fun ValtisHomePlaceholder() {
 
         Text(
             text = "VALTIS",
-            color = ValtisGold,
+            color = ValtisWhite,
             fontSize = 34.sp,
             fontWeight = FontWeight.Bold
         )

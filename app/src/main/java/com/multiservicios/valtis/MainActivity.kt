@@ -11,11 +11,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,11 +32,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
-private val ValtisBlue = Color(0xFF0B304A)
+private val ValtisBlue = Color(0xFF163754)
 private val ValtisWhite = Color.White
 
 class MainActivity : ComponentActivity() {
@@ -63,12 +65,8 @@ fun ValtisApp() {
 
     AnimatedVisibility(
         visible = showSplash,
-        enter = fadeIn(
-            animationSpec = tween(350)
-        ),
-        exit = fadeOut(
-            animationSpec = tween(800)
-        )
+        enter = fadeIn(tween(350)),
+        exit = fadeOut(tween(800))
     ) {
         ValtisSplash()
     }
@@ -86,60 +84,98 @@ fun ValtisSplash() {
     }
 
     LaunchedEffect(Unit) {
+        delay(150)
         startAnimation = true
     }
 
-    val logoAlpha by animateFloatAsState(
+    val alpha by animateFloatAsState(
         targetValue = if (startAnimation) 1f else 0f,
         animationSpec = tween(
-            durationMillis = 1000,
+            durationMillis = 1100,
             easing = FastOutSlowInEasing
         ),
-        label = "logoAlpha"
+        label = "splashAlpha"
     )
 
-    val logoScale by animateFloatAsState(
+    val scale by animateFloatAsState(
         targetValue = if (startAnimation) 1f else 0.88f,
         animationSpec = tween(
-            durationMillis = 1250,
+            durationMillis = 1350,
             easing = FastOutSlowInEasing
         ),
-        label = "logoScale"
+        label = "splashScale"
     )
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(ValtisBlue),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        contentAlignment = Alignment.Center
     ) {
 
-        Image(
-            painter = painterResource(
-                id = R.drawable.valtis_logo_transparent
-            ),
-            contentDescription = "VALTIS",
-            contentScale = ContentScale.Fit,
+        Box(
             modifier = Modifier
-                .graphicsLayer(
-                    scaleX = logoScale,
-                    scaleY = logoScale
-                )
-                .alpha(logoAlpha)
-        )
+                .size(310.dp, 205.dp)
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                }
+                .alpha(alpha)
+        ) {
+
+            Image(
+                painter = painterResource(
+                    id = R.drawable.valtis_logo_splash
+                ),
+                contentDescription = "VALTIS",
+                contentScale = ContentScale.FillBounds,
+                modifier = Modifier.fillMaxSize()
+            )
+
+            Text(
+                text = "VALTIS",
+                color = ValtisWhite,
+                fontSize = 38.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = 98.dp)
+            )
+
+            Text(
+                text = "Tu dinero. Tu control. Tu futuro.",
+                color = ValtisWhite,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Normal,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = 135.dp)
+            )
+
+            Text(
+                text = "Powered by Multiservicios",
+                color = ValtisWhite,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Normal,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = 186.dp)
+            )
+        }
     }
 }
 
 @Composable
 private fun ValtisHomePlaceholder() {
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(ValtisBlue),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        contentAlignment = Alignment.Center
     ) {
 
         Text(
@@ -147,16 +183,6 @@ private fun ValtisHomePlaceholder() {
             color = ValtisWhite,
             fontSize = 34.sp,
             fontWeight = FontWeight.Bold
-        )
-
-        Spacer(
-            modifier = Modifier.height(10.dp)
-        )
-
-        Text(
-            text = "Dashboard",
-            color = ValtisWhite,
-            fontSize = 18.sp
         )
     }
 }

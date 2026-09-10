@@ -1,14 +1,12 @@
 package com.multiservicios.valtis
 
+import android.net.Uri
 import android.os.Bundle
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.VideoView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,18 +18,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,15 +34,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.delay
 
 private val ValtisBlue = Color(0xFF163754)
@@ -74,106 +66,84 @@ fun ValtisApp() {
 
     var showSplash by remember { mutableStateOf(true) }
 
-    LaunchedEffect(Unit) {
-        delay(4700)
-        showSplash = false
-    }
-
-    AnimatedVisibility(
-        visible = showSplash,
-        enter = fadeIn(tween(350)),
-        exit = fadeOut(tween(800))
-    ) {
-        ValtisSplash()
-    }
-
-    if (!showSplash) {
+    if (showSplash) {
+        ValtisSplashVideo(
+            onFinished = {
+                showSplash = false
+            }
+        )
+    } else {
         ValtisMain()
     }
 }
 
 @Composable
-fun ValtisSplash() {
+private fun ValtisSplashVideo(
+    onFinished: () -> Unit
+) {
 
-    var startAnimation by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
-    LaunchedEffect(Unit) {
-        delay(150)
-        startAnimation = true
+    val videoView = remember {
+        VideoView(context).apply {
+
+            setVideoURI(
+                Uri.parse(
+                    "android.resource://${context.packageName}/${R.raw.valtis_splash}"
+                )
+            )
+
+            setOnCompletionListener {
+                onFinished()
+            }
+
+            setOnErrorListener { _, _, _ ->
+                onFinished()
+                true
+            }
+
+            start()
+        }
     }
 
-    val alpha by animateFloatAsState(
-        targetValue = if (startAnimation) 1f else 0f,
-        animationSpec = tween(
-            durationMillis = 1100,
-            easing = FastOutSlowInEasing
-        ),
-        label = "splashAlpha"
-    )
-
-    val scale by animateFloatAsState(
-        targetValue = if (startAnimation) 1f else 0.88f,
-        animationSpec = tween(
-            durationMillis = 1350,
-            easing = FastOutSlowInEasing
-        ),
-        label = "splashScale"
-    )
+    DisposableEffect(Unit) {
+        onDispose {
+            videoView.stopPlayback()
+        }
+    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(ValtisBlue),
+            .background(Color(0xFF0B304A)),
         contentAlignment = Alignment.Center
     ) {
 
-        Box(
-            modifier = Modifier
-                .size(340.dp, 225.dp)
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
+        androidx.compose.ui.viewinterop.AndroidView(
+            factory = {
+                FrameLayout(context).apply {
+
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+
+                    addView(
+                        videoView,
+                        FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                    )
                 }
-                .alpha(alpha)
-        ) {
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+    }
 
-            androidx.compose.foundation.Image(
-                painter = painterResource(R.drawable.valtis_logo_splash),
-                contentDescription = "VALTIS",
-                modifier = Modifier.fillMaxSize()
-            )
-
-            Text(
-                text = "VALTIS",
-                color = ValtisWhite,
-                fontSize = 38.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 98.dp)
-            )
-
-            Text(
-                text = "Tu dinero. Tu control. Tu futuro.",
-                color = ValtisWhite,
-                fontSize = 10.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 138.dp)
-            )
-
-            Text(
-                text = "Powered by Multiservicios",
-                color = ValtisWhite,
-                fontSize = 10.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 186.dp)
-            )
-        }
+    LaunchedEffect(Unit) {
+        delay(12000)
+        onFinished()
     }
 }
 
@@ -201,11 +171,14 @@ private fun ValtisMain() {
             NavigationBar(
                 containerColor = Color.White
             ) {
+
                 ValtisSection.entries.forEach { section ->
 
                     NavigationBarItem(
                         selected = selected == section,
-                        onClick = { selected = section },
+                        onClick = {
+                            selected = section
+                        },
                         icon = {
                             Text(
                                 text = section.symbol,
@@ -230,12 +203,23 @@ private fun ValtisMain() {
                 .fillMaxSize()
                 .padding(padding)
         ) {
+
             when (selected) {
-                ValtisSection.INICIO -> DashboardScreen()
-                ValtisSection.INGRESOS -> IngresosScreen()
-                ValtisSection.GASTOS -> GastosScreen()
-                ValtisSection.COMPROMISOS -> CompromisosScreen()
-                ValtisSection.DEUDAS -> DeudasScreen()
+
+                ValtisSection.INICIO ->
+                    DashboardScreen()
+
+                ValtisSection.INGRESOS ->
+                    IngresosScreen()
+
+                ValtisSection.GASTOS ->
+                    GastosScreen()
+
+                ValtisSection.COMPROMISOS ->
+                    CompromisosScreen()
+
+                ValtisSection.DEUDAS ->
+                    DeudasScreen()
             }
         }
     }
@@ -252,6 +236,7 @@ private fun DashboardScreen() {
     ) {
 
         item {
+
             Spacer(Modifier.height(18.dp))
 
             Text(
@@ -259,6 +244,8 @@ private fun DashboardScreen() {
                 color = ValtisMuted,
                 fontSize = 15.sp
             )
+
+            Spacer(Modifier.height(4.dp))
 
             Text(
                 text = "Tu resumen financiero",
@@ -273,10 +260,12 @@ private fun DashboardScreen() {
         }
 
         item {
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+
                 SummaryCard(
                     modifier = Modifier.weight(1f),
                     title = "Ingresos",
@@ -329,6 +318,7 @@ private fun BalanceCard() {
         shape = RoundedCornerShape(24.dp),
         color = ValtisBlue
     ) {
+
         Column(
             modifier = Modifier.padding(22.dp)
         ) {
@@ -372,6 +362,7 @@ private fun SummaryCard(
         shape = RoundedCornerShape(20.dp),
         color = Color.White
     ) {
+
         Column(
             modifier = Modifier.padding(17.dp)
         ) {
@@ -417,6 +408,7 @@ private fun EmptyCard(
         shape = RoundedCornerShape(18.dp),
         color = Color.White
     ) {
+
         Column(
             modifier = Modifier.padding(18.dp)
         ) {
@@ -441,6 +433,7 @@ private fun EmptyCard(
 
 @Composable
 private fun IngresosScreen() {
+
     ModuleScreen(
         title = "Ingresos",
         subtitle = "Registra y controla tus depósitos reales.",
@@ -450,6 +443,7 @@ private fun IngresosScreen() {
 
 @Composable
 private fun GastosScreen() {
+
     ModuleScreen(
         title = "Gastos",
         subtitle = "Controla en qué estás utilizando tu dinero.",
@@ -459,6 +453,7 @@ private fun GastosScreen() {
 
 @Composable
 private fun CompromisosScreen() {
+
     ModuleScreen(
         title = "Compromisos",
         subtitle = "Administra tus pagos recurrentes y fechas límite.",
@@ -468,6 +463,7 @@ private fun CompromisosScreen() {
 
 @Composable
 private fun DeudasScreen() {
+
     ModuleScreen(
         title = "Deudas",
         subtitle = "Consulta saldos, pagos y progreso.",
@@ -489,6 +485,7 @@ private fun ModuleScreen(
     ) {
 
         item {
+
             Spacer(Modifier.height(18.dp))
 
             Text(
@@ -513,12 +510,14 @@ private fun ModuleScreen(
                 shape = RoundedCornerShape(20.dp),
                 color = ValtisBlue
             ) {
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
                     contentAlignment = Alignment.Center
                 ) {
+
                     Text(
                         text = action,
                         color = ValtisWhite,

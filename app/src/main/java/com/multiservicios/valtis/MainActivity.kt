@@ -35,10 +35,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.font.FontWeight
 import kotlinx.coroutines.delay
+import java.util.Locale
 
 private val ValtisBlue = Color(0xFF163754)
 private val ValtisWhite = Color.White
@@ -226,6 +227,24 @@ private fun ValtisMain() {
 @Composable
 private fun DashboardScreen() {
 
+    val financialResult = remember {
+        FinancialEngine.calculate(
+            deposit = ValtisDeposit(4500.0),
+            commitments = listOf(
+                ValtisCommitment(
+                    name = "Moto",
+                    amount = 1500.0,
+                    depositsUntilDue = 2
+                ),
+                ValtisCommitment(
+                    name = "Colegiatura",
+                    amount = 2000.0,
+                    depositsUntilDue = 2
+                )
+            )
+        )
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -254,7 +273,7 @@ private fun DashboardScreen() {
         }
 
         item {
-            BalanceCard()
+            BalanceCard(financialResult.available)
         }
 
         item {
@@ -266,15 +285,15 @@ private fun DashboardScreen() {
 
                 SummaryCard(
                     modifier = Modifier.weight(1f),
-                    title = "Ingresos",
-                    value = "$0.00",
+                    title = "Ingreso",
+                    value = money(financialResult.deposit),
                     color = ValtisGreen
                 )
 
                 SummaryCard(
                     modifier = Modifier.weight(1f),
-                    title = "Gastos",
-                    value = "$0.00",
+                    title = "Apartado",
+                    value = money(financialResult.totalSetAside),
                     color = ValtisRed
                 )
             }
@@ -284,11 +303,11 @@ private fun DashboardScreen() {
             SectionTitle("Próximos compromisos")
         }
 
-        item {
-            EmptyCard(
-                title = "Sin compromisos registrados",
-                message = "Aquí aparecerán tus próximos pagos."
-            )
+        items(financialResult.commitments.size) { index ->
+
+            val commitment = financialResult.commitments[index]
+
+            CommitmentCard(commitment)
         }
 
         item {
@@ -297,8 +316,8 @@ private fun DashboardScreen() {
 
         item {
             EmptyCard(
-                title = "Sin movimientos",
-                message = "Cuando registres ingresos o gastos aparecerán aquí."
+                title = "Depósito recibido",
+                message = "VALTIS está utilizando el depósito real para calcular tu apartado."
             )
         }
 
@@ -309,7 +328,9 @@ private fun DashboardScreen() {
 }
 
 @Composable
-private fun BalanceCard() {
+private fun BalanceCard(
+    available: Double
+) {
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -322,7 +343,7 @@ private fun BalanceCard() {
         ) {
 
             Text(
-                text = "Disponible",
+                text = "Disponible real",
                 color = ValtisWhite.copy(alpha = 0.75f),
                 fontSize = 14.sp
             )
@@ -330,7 +351,7 @@ private fun BalanceCard() {
             Spacer(Modifier.height(6.dp))
 
             Text(
-                text = "$0.00",
+                text = money(available),
                 color = ValtisWhite,
                 fontSize = 34.sp,
                 fontWeight = FontWeight.Bold
@@ -339,9 +360,51 @@ private fun BalanceCard() {
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = "Sin movimientos registrados",
+                text = "Después de considerar tus próximos compromisos",
                 color = ValtisWhite.copy(alpha = 0.8f),
                 fontSize = 12.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun CommitmentCard(
+    commitment: ValtisCommitmentResult
+) {
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = Color.White
+    ) {
+
+        Column(
+            modifier = Modifier.padding(18.dp)
+        ) {
+
+            Text(
+                text = commitment.name,
+                color = ValtisText,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Spacer(Modifier.height(6.dp))
+
+            Text(
+                text = "Apartar ahora: ${money(commitment.recommendedSetAside)}",
+                color = ValtisGreen,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(Modifier.height(4.dp))
+
+            Text(
+                text = "Pendiente después de este depósito: ${money(commitment.remainingAmount)}",
+                color = ValtisMuted,
+                fontSize = 13.sp
             )
         }
     }
@@ -532,4 +595,12 @@ private fun ModuleScreen(
             )
         }
     }
+}
+
+private fun money(value: Double): String {
+    return String.format(
+        Locale.US,
+        "$%,.2f",
+        value
+    )
 }

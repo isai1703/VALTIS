@@ -13,9 +13,9 @@ data class ValtisCommitment(
 
 data class ValtisCommitmentResult(
     val name: String,
-    val requiredAmount: Double,
+    val pendingAmount: Double,
     val recommendedSetAside: Double,
-    val remainingAfterDeposit: Double
+    val remainingAmount: Double
 )
 
 data class ValtisFinancialResult(
@@ -32,7 +32,7 @@ object FinancialEngine {
         commitments: List<ValtisCommitment>
     ): ValtisFinancialResult {
 
-        var availableMoney = deposit.amount
+        var available = deposit.amount
         val results = mutableListOf<ValtisCommitmentResult>()
 
         commitments
@@ -40,34 +40,32 @@ object FinancialEngine {
             .sortedBy { it.depositsUntilDue }
             .forEach { commitment ->
 
-                val pendingAmount =
+                val pending =
                     (commitment.amount - commitment.alreadySetAside)
                         .coerceAtLeast(0.0)
 
                 val deposits =
                     commitment.depositsUntilDue.coerceAtLeast(1)
 
-                val recommended =
-                    pendingAmount / deposits
+                val recommended = pending / deposits
 
                 val actualSetAside =
-                    minOf(availableMoney, recommended)
+                    minOf(available, recommended)
 
-                availableMoney -= actualSetAside
+                available -= actualSetAside
 
                 results += ValtisCommitmentResult(
                     name = commitment.name,
-                    requiredAmount = pendingAmount,
+                    pendingAmount = pending,
                     recommendedSetAside = actualSetAside,
-                    remainingAfterDeposit =
-                        pendingAmount - actualSetAside
+                    remainingAmount = pending - actualSetAside
                 )
             }
 
         return ValtisFinancialResult(
             deposit = deposit.amount,
-            totalSetAside = deposit.amount - availableMoney,
-            available = availableMoney,
+            totalSetAside = deposit.amount - available,
+            available = available,
             commitments = results
         )
     }

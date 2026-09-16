@@ -1,5 +1,9 @@
 package com.multiservicios.valtis
 
+import com.multiservicios.valtis.ui.ingresos.IngresosRealScreen
+import com.multiservicios.valtis.data.local.ValtisDatabaseProvider
+import com.multiservicios.valtis.ui.compromisos.CompromisosRealScreen
+
 import android.net.Uri
 import android.os.Bundle
 import android.view.ViewGroup
@@ -25,6 +29,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import java.util.Locale
+import kotlin.math.ceil
 
 private val ValtisBlue = Color(0xFF163754)
 private val ValtisWhite = Color.White
@@ -209,13 +215,13 @@ private fun ValtisMain() {
                     DashboardScreen()
 
                 ValtisSection.INGRESOS ->
-                    IngresosScreen()
+                    IngresosRealScreen()
 
                 ValtisSection.GASTOS ->
                     GastosScreen()
 
                 ValtisSection.COMPROMISOS ->
-                    CompromisosScreen()
+                    CompromisosRealScreen()
 
                 ValtisSection.DEUDAS ->
                     DeudasScreen()
@@ -227,22 +233,51 @@ private fun ValtisMain() {
 @Composable
 private fun DashboardScreen() {
 
-    val financialResult = remember {
-        FinancialEngine.calculate(
-            deposit = ValtisDeposit(4500.0),
-            commitments = listOf(
-                ValtisCommitment(
-                    name = "Moto",
-                    amount = 1500.0,
-                    depositsUntilDue = 2
+    val context = LocalContext.current
+
+    val database = remember {
+        ValtisDatabaseProvider.getDatabase(context)
+    }
+
+    val dao = database.valtisDao()
+
+    val ingresos by dao.observarIngresos()
+        .collectAsState(initial = emptyList())
+
+    val compromisos by dao.observarCompromisos()
+        .collectAsState(initial = emptyList())
+
+    val ultimoIngreso = ingresos.firstOrNull()
+
+    val financialResult = remember(
+        ultimoIngreso,
+        compromisos
+    ) {
+
+        if (ultimoIngreso == null) {
+
+            null
+
+        } else {
+
+            FinancialEngine.calculate(
+                deposit = ValtisDeposit(
+                    amount = ultimoIngreso.monto
                 ),
-                ValtisCommitment(
-                    name = "Colegiatura",
-                    amount = 2000.0,
-                    depositsUntilDue = 2
-                )
+                commitments = compromisos.map { compromiso ->
+
+                    ValtisCommitment(
+                        name = compromiso.nombre,
+                        amount = compromiso.monto,
+                        depositsUntilDue = depositsUntilDueWeekly(
+                            fromDate = ultimoIngreso.fecha,
+                            dueDate = compromiso.fechaVencimiento
+                        ),
+                        alreadySetAside = compromiso.apartado
+                    )
+                }
             )
-        )
+        }
     }
 
     LazyColumn(
@@ -272,59 +307,114 @@ private fun DashboardScreen() {
             )
         }
 
-        item {
-            BalanceCard(financialResult.available)
-        }
+        if (financialResult == null) {
 
-        item {
+            item {
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-
-                SummaryCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Ingreso",
-                    value = money(financialResult.deposit),
-                    color = ValtisGreen
-                )
-
-                SummaryCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Apartado",
-                    value = money(financialResult.totalSetAside),
-                    color = ValtisRed
+                EmptyCard(
+                    title = "Aún no tienes ingresos",
+                    message = "Registra tu primer depósito real para que VALTIS pueda calcular tu dinero disponible."
                 )
             }
-        }
 
-        item {
-            SectionTitle("Próximos compromisos")
-        }
+            item {
 
-        items(financialResult.commitments.size) { index ->
+                EmptyCard(
+                    title = "Tus compromisos",
+                    message = if (compromisos.isEmpty()) {
+                        "Todavía no tienes compromisos registrados."
+                    } else {
+                        "Tienes ${compromisos.size} compromiso(s) registrado(s)."
+                    }
+                )
+            }
 
-            val commitment = financialResult.commitments[index]
+        } else {
 
-            CommitmentCard(commitment)
-        }
+            item {
+                BalanceCard(financialResult.available)
+            }
 
-        item {
-            SectionTitle("Actividad reciente")
-        }
+            item {
 
-        item {
-            EmptyCard(
-                title = "Depósito recibido",
-                message = "VALTIS está utilizando el depósito real para calcular tu apartado."
-            )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+
+                    SummaryCard(
+                        modifier = Modifier.weight(1f),
+                        title = "Ingreso",
+                        value = money(financialResult.deposit),
+                        color = ValtisGreen
+                    )
+
+                    SummaryCard(
+                        modifier = Modifier.weight(1f),
+                        title = "Apartado",
+                        value = money(financialResult.totalSetAside),
+                        color = ValtisRed
+                    )
+                }
+            }
+
+            item {
+                SectionTitle("Próximos compromisos")
+            }
+
+            if (financialResult.commitments.isEmpty()) {
+
+                item {
+
+                    EmptyCard(
+                        title = "Sin compromisos registrados",
+                        message = "Agrega tus próximos pagos para que VALTIS pueda calcular cuánto apartar."
+                    )
+                }
+
+            } else {
+
+                items(financialResult.commitments.size) { index ->
+
+                    val commitment = financialResult.commitments[index]
+
+                    CommitmentCard(commitment)
+                }
+            }
+
+            item {
+                SectionTitle("Actividad reciente")
+            }
+
+            item {
+
+                EmptyCard(
+                    title = ultimoIngreso!!.concepto,
+                    message = "Último ingreso registrado: ${money(ultimoIngreso!!.monto)}"
+                )
+            }
         }
 
         item {
             Spacer(Modifier.height(20.dp))
         }
     }
+}
+
+private fun depositsUntilDueWeekly(
+    fromDate: Long,
+    dueDate: Long
+): Int {
+
+    val millisecondsPerDay = 24L * 60L * 60L * 1000L
+
+    val daysUntilDue =
+        ((dueDate - fromDate).toDouble() / millisecondsPerDay)
+            .coerceAtLeast(0.0)
+
+    return ceil(daysUntilDue / 7.0)
+        .toInt()
+        .coerceAtLeast(1)
 }
 
 @Composable

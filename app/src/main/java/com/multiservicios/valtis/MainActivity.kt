@@ -40,11 +40,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.multiservicios.valtis.data.local.ValtisDatabaseProvider
+import com.multiservicios.valtis.data.local.entities.DeudaEntity
 import com.multiservicios.valtis.finance.ObligationType
 import com.multiservicios.valtis.finance.PayrollDeposit
 import com.multiservicios.valtis.finance.PayrollFrequency
 import com.multiservicios.valtis.finance.SetAsideEngine
 import com.multiservicios.valtis.finance.SetAsideObligation
+import com.multiservicios.valtis.finance.SetAsideResult
 import com.multiservicios.valtis.ui.compromisos.CompromisosRealScreen
 import com.multiservicios.valtis.ui.deudas.DeudasRealScreen
 import com.multiservicios.valtis.ui.gastos.GastosRealScreen
@@ -62,6 +64,8 @@ private val ValtisText = Color(0xFF18212B)
 private val ValtisMuted = Color(0xFF68727D)
 private val ValtisGreen = Color(0xFF198754)
 private val ValtisRed = Color(0xFFD64545)
+private val ValtisGold = Color(0xFFC9A227)
+private val ValtisOrange = Color(0xFFE38B2C)
 
 class MainActivity : ComponentActivity() {
 
@@ -223,6 +227,7 @@ private fun ValtisMain() {
                 }
             }
         }
+
     ) { padding ->
 
         Box(
@@ -313,32 +318,25 @@ private fun DashboardScreen() {
                 val obligaciones =
                     mutableListOf<SetAsideObligation>()
 
-                /*
-                 * COMPROMISOS
-                 */
-
                 compromisos.forEach { compromiso ->
 
-                    obligaciones += SetAsideObligation(
-                        id = compromiso.id,
-                        name = compromiso.nombre,
-                        amount = compromiso.monto,
-                        dueDate =
-                            millisToLocalDate(
-                                compromiso.fechaVencimiento
-                            ),
-                        alreadySetAside =
-                            compromiso.apartado,
-                        previousShortfall = 0.0,
-                        active = true,
-                        type =
-                            ObligationType.COMPROMISO
-                    )
+                    obligaciones +=
+                        SetAsideObligation(
+                            id = compromiso.id,
+                            name = compromiso.nombre,
+                            amount = compromiso.monto,
+                            dueDate =
+                                millisToLocalDate(
+                                    compromiso.fechaVencimiento
+                                ),
+                            alreadySetAside =
+                                compromiso.apartado,
+                            previousShortfall = 0.0,
+                            active = true,
+                            type =
+                                ObligationType.COMPROMISO
+                        )
                 }
-
-                /*
-                 * DEUDAS RECURRENTES
-                 */
 
                 deudas
                     .filter { it.activa }
@@ -365,17 +363,22 @@ private fun DashboardScreen() {
                     }
 
                 SetAsideEngine.calculate(
+
                     deposit =
                         PayrollDeposit(
-                            id = ultimoIngreso.id,
-                            amount = ultimoIngreso.monto,
+                            id =
+                                ultimoIngreso.id,
+                            amount =
+                                ultimoIngreso.monto,
                             date =
                                 millisToLocalDate(
                                     ultimoIngreso.fecha
                                 )
                         ),
+
                     obligations =
                         obligaciones,
+
                     frequency =
                         PayrollFrequency.WEEKLY
                 )
@@ -383,11 +386,15 @@ private fun DashboardScreen() {
         }
 
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 20.dp),
+
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = 20.dp),
+
         verticalArrangement =
             Arrangement.spacedBy(14.dp)
+
     ) {
 
         item {
@@ -412,6 +419,17 @@ private fun DashboardScreen() {
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold
             )
+
+            Spacer(
+                Modifier.height(4.dp)
+            )
+
+            Text(
+                text =
+                    "Esto es lo que realmente tienes disponible.",
+                color = ValtisMuted,
+                fontSize = 13.sp
+            )
         }
 
         if (financialResult == null) {
@@ -429,13 +447,17 @@ private fun DashboardScreen() {
 
                 EmptyCard(
                     title = "Tus obligaciones",
+
                     message =
                         if (
                             compromisos.isEmpty() &&
                             deudas.isEmpty()
                         ) {
+
                             "Todavía no tienes compromisos ni deudas registrados."
+
                         } else {
+
                             "Tienes ${
                                 compromisos.size +
                                     deudas.count { it.activa }
@@ -457,40 +479,56 @@ private fun DashboardScreen() {
 
                 BalanceCard(
                     available =
-                        disponibleDespuesDeGastos
+                        disponibleDespuesDeGastos,
+
+                    hasInsufficientFunds =
+                        financialResult.hasInsufficientFunds
                 )
             }
 
             item {
 
                 Row(
+
                     modifier =
                         Modifier.fillMaxWidth(),
+
                     horizontalArrangement =
                         Arrangement.spacedBy(12.dp)
+
                 ) {
 
                     SummaryCard(
                         modifier =
                             Modifier.weight(1f),
-                        title = "Ingreso",
+
+                        title =
+                            "Ingreso",
+
                         value =
                             money(
                                 financialResult.depositAmount
                             ),
-                        color = ValtisGreen
+
+                        color =
+                            ValtisGreen
                     )
 
                     SummaryCard(
                         modifier =
                             Modifier.weight(1f),
-                        title = "Apartado",
+
+                        title =
+                            "Apartado",
+
                         value =
                             money(
                                 financialResult
                                     .totalRecommendedSetAside
                             ),
-                        color = ValtisRed
+
+                        color =
+                            ValtisGold
                     )
                 }
             }
@@ -500,12 +538,17 @@ private fun DashboardScreen() {
                 SummaryCard(
                     modifier =
                         Modifier.fillMaxWidth(),
-                    title = "Gastos",
+
+                    title =
+                        "Gastos desde la última nómina",
+
                     value =
                         money(
                             gastosDesdeUltimoIngreso
                         ),
-                    color = ValtisRed
+
+                    color =
+                        ValtisRed
                 )
             }
 
@@ -525,6 +568,7 @@ private fun DashboardScreen() {
                     EmptyCard(
                         title =
                             "Sin obligaciones registradas",
+
                         message =
                             "Agrega compromisos o deudas para que VALTIS calcule cuánto apartar."
                     )
@@ -537,10 +581,31 @@ private fun DashboardScreen() {
                 ) { index ->
 
                     val obligation =
-                        financialResult.obligations[index]
+                        financialResult
+                            .obligations[index]
+
+                    val deuda =
+                        if (
+                            obligation.type ==
+                                ObligationType.DEUDA
+                        ) {
+
+                            deudas.firstOrNull {
+                                it.id ==
+                                    obligation.obligationId
+                            }
+
+                        } else {
+
+                            null
+                        }
 
                     ObligationCard(
-                        obligation = obligation
+                        obligation =
+                            obligation,
+
+                        deuda =
+                            deuda
                     )
                 }
             }
@@ -551,11 +616,10 @@ private fun DashboardScreen() {
 
                 item {
 
-                    EmptyCard(
-                        title =
-                            "Fondos insuficientes",
-                        message =
-                            "Esta nómina no alcanza para cubrir todas las necesidades proyectadas. VALTIS conservará el faltante para continuar el cálculo en las siguientes nóminas."
+                    InsufficientFundsCard(
+                        amount =
+                            financialResult
+                                .totalProjectedShortfall
                     )
                 }
             }
@@ -569,15 +633,17 @@ private fun DashboardScreen() {
 
             item {
 
-                EmptyCard(
+                ActivityCard(
                     title =
-                        ultimoIngreso?.concepto ?: "Último ingreso",
-                    message =
-                        "Último ingreso registrado: ${
-                            money(
-                                ultimoIngreso?.monto ?: 0.0
-                            )
-                        }"
+                        ultimoIngreso?.concepto
+                            ?: "Último ingreso",
+
+                    amount =
+                        ultimoIngreso?.monto
+                            ?: 0.0,
+
+                    date =
+                        ultimoIngreso?.fecha
                 )
             }
         }
@@ -605,21 +671,27 @@ private fun millisToLocalDate(
 
 @Composable
 private fun BalanceCard(
-    available: Double
+    available: Double,
+    hasInsufficientFunds: Boolean
 ) {
 
     Surface(
+
         modifier =
             Modifier.fillMaxWidth(),
+
         shape =
             RoundedCornerShape(24.dp),
+
         color =
             ValtisBlue
     ) {
 
         Column(
+
             modifier =
                 Modifier.padding(22.dp)
+
         ) {
 
             Text(
@@ -636,96 +708,16 @@ private fun BalanceCard(
             )
 
             Text(
-                text = money(available),
-                color = ValtisWhite,
+                text =
+                    money(available),
+
+                color =
+                    ValtisWhite,
+
                 fontSize = 34.sp,
-                fontWeight = FontWeight.Bold
-            )
 
-            Spacer(
-                Modifier.height(16.dp)
-            )
-
-            Text(
-                text =
-                    "Después de considerar apartados y gastos",
-                color =
-                    ValtisWhite.copy(
-                        alpha = 0.8f
-                    ),
-                fontSize = 12.sp
-            )
-        }
-    }
-}
-
-@Composable
-private fun ObligationCard(
-    obligation:
-        com.multiservicios.valtis.finance.SetAsideResult
-) {
-
-    Surface(
-        modifier =
-            Modifier.fillMaxWidth(),
-        shape =
-            RoundedCornerShape(18.dp),
-        color =
-            Color.White
-    ) {
-
-        Column(
-            modifier =
-                Modifier.padding(18.dp)
-        ) {
-
-            Row(
-                modifier =
-                    Modifier.fillMaxWidth(),
-                horizontalArrangement =
-                    Arrangement.SpaceBetween
-            ) {
-
-                Text(
-                    text =
-                        obligation.name,
-                    color =
-                        ValtisText,
-                    fontSize = 16.sp,
-                    fontWeight =
-                        FontWeight.SemiBold
-                )
-
-                Text(
-                    text =
-                        if (
-                            obligation.type ==
-                                ObligationType.DEUDA
-                        ) {
-                            "Deuda"
-                        } else {
-                            "Compromiso"
-                        },
-                    color =
-                        ValtisMuted,
-                    fontSize = 12.sp
-                )
-            }
-
-            Spacer(
-                Modifier.height(6.dp)
-            )
-
-            Text(
-                text =
-                    "Vence: ${
-                        formatDate(
-                            obligation.dueDate
-                        )
-                    }",
-                color =
-                    ValtisMuted,
-                fontSize = 13.sp
+                fontWeight =
+                    FontWeight.Bold
             )
 
             Spacer(
@@ -734,58 +726,606 @@ private fun ObligationCard(
 
             Text(
                 text =
-                    "Apartar ahora: ${
-                        money(
-                            obligation
-                                .recommendedSetAside
-                        )
-                    }",
+                    if (hasInsufficientFunds) {
+                        "Hay obligaciones que requieren atención."
+                    } else {
+                        "Dinero libre después de apartados y gastos."
+                    },
+
                 color =
-                    ValtisGreen,
-                fontSize = 14.sp,
+                    ValtisWhite.copy(
+                        alpha = 0.85f
+                    ),
+
+                fontSize = 12.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun ObligationCard(
+    obligation: SetAsideResult,
+    deuda: DeudaEntity?
+) {
+
+    val today =
+        LocalDate.now()
+
+    val vencida =
+        obligation.dueDate.isBefore(today)
+
+    val diasRestantes =
+        java.time.temporal.ChronoUnit.DAYS.between(
+            today,
+            obligation.dueDate
+        )
+
+    Surface(
+
+        modifier =
+            Modifier.fillMaxWidth(),
+
+        shape =
+            RoundedCornerShape(20.dp),
+
+        color =
+            Color.White
+    ) {
+
+        Column(
+
+            modifier =
+                Modifier.padding(18.dp)
+
+        ) {
+
+            Row(
+
+                modifier =
+                    Modifier.fillMaxWidth(),
+
+                horizontalArrangement =
+                    Arrangement.SpaceBetween,
+
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+
+                Column(
+                    modifier =
+                        Modifier.weight(1f)
+                ) {
+
+                    Text(
+                        text =
+                            obligation.name,
+
+                        color =
+                            ValtisText,
+
+                        fontSize =
+                            17.sp,
+
+                        fontWeight =
+                            FontWeight.SemiBold
+                    )
+
+                    Spacer(
+                        Modifier.height(3.dp)
+                    )
+
+                    Text(
+                        text =
+                            if (
+                                obligation.type ==
+                                    ObligationType.DEUDA
+                            ) {
+                                "Deuda recurrente"
+                            } else {
+                                "Compromiso"
+                            },
+
+                        color =
+                            ValtisMuted,
+
+                        fontSize =
+                            12.sp
+                    )
+                }
+
+                StatusBadge(
+                    vencida =
+                        vencida,
+
+                    diasRestantes =
+                        diasRestantes
+                )
+            }
+
+            Spacer(
+                Modifier.height(14.dp)
+            )
+
+            Row(
+
+                modifier =
+                    Modifier.fillMaxWidth(),
+
+                horizontalArrangement =
+                    Arrangement.spacedBy(10.dp)
+            ) {
+
+                MiniInfo(
+                    modifier =
+                        Modifier.weight(1f),
+
+                    title =
+                        "Total",
+
+                    value =
+                        money(
+                            obligation.totalAmount
+                        )
+                )
+
+                MiniInfo(
+                    modifier =
+                        Modifier.weight(1f),
+
+                    title =
+                        "Apartado",
+
+                    value =
+                        money(
+                            obligation.alreadySetAside
+                        )
+                )
+
+                MiniInfo(
+                    modifier =
+                        Modifier.weight(1f),
+
+                    title =
+                        "Pendiente",
+
+                    value =
+                        money(
+                            obligation.remainingAmount
+                        )
+                )
+            }
+
+            Spacer(
+                Modifier.height(14.dp)
+            )
+
+            Surface(
+
+                modifier =
+                    Modifier.fillMaxWidth(),
+
+                shape =
+                    RoundedCornerShape(14.dp),
+
+                color =
+                    Color(0xFFF5F7FA)
+            ) {
+
+                Column(
+
+                    modifier =
+                        Modifier.padding(14.dp)
+
+                ) {
+
+                    Text(
+                        text =
+                            "Próximo vencimiento",
+
+                        color =
+                            ValtisMuted,
+
+                        fontSize =
+                            12.sp
+                    )
+
+                    Spacer(
+                        Modifier.height(3.dp)
+                    )
+
+                    Text(
+                        text =
+                            formatDate(
+                                obligation.dueDate
+                            ),
+
+                        color =
+                            ValtisText,
+
+                        fontSize =
+                            14.sp,
+
+                        fontWeight =
+                            FontWeight.SemiBold
+                    )
+
+                    if (
+                        obligation.recommendedSetAside >
+                            0.009
+                    ) {
+
+                        Spacer(
+                            Modifier.height(8.dp)
+                        )
+
+                        Text(
+                            text =
+                                "Apartar ahora: ${
+                                    money(
+                                        obligation
+                                            .recommendedSetAside
+                                    )
+                                }",
+
+                            color =
+                                ValtisGreen,
+
+                            fontSize =
+                                14.sp,
+
+                            fontWeight =
+                                FontWeight.Bold
+                        )
+                    }
+
+                    if (
+                        obligation.projectedShortfall >
+                            0.009
+                    ) {
+
+                        Spacer(
+                            Modifier.height(5.dp)
+                        )
+
+                        Text(
+                            text =
+                                "Faltante proyectado: ${
+                                    money(
+                                        obligation
+                                            .projectedShortfall
+                                    )
+                                }",
+
+                            color =
+                                ValtisRed,
+
+                            fontSize =
+                                13.sp
+                        )
+                    }
+                }
+            }
+
+            if (
+                deuda != null
+            ) {
+
+                Spacer(
+                    Modifier.height(12.dp)
+                )
+
+                DebtDetails(
+                    deuda =
+                        deuda
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DebtDetails(
+    deuda: DeudaEntity
+) {
+
+    Surface(
+
+        modifier =
+            Modifier.fillMaxWidth(),
+
+        shape =
+            RoundedCornerShape(14.dp),
+
+        color =
+            Color(0xFFFDF9EF)
+    ) {
+
+        Column(
+
+            modifier =
+                Modifier.padding(14.dp)
+
+        ) {
+
+            Text(
+                text =
+                    "Plan de deuda",
+
+                color =
+                    ValtisText,
+
+                fontSize =
+                    13.sp,
+
                 fontWeight =
                     FontWeight.Bold
             )
 
             Spacer(
-                Modifier.height(4.dp)
+                Modifier.height(8.dp)
             )
 
-            Text(
-                text =
-                    "Pendiente: ${
-                        money(
-                            obligation
-                                .remainingAmount
-                        )
-                    }",
-                color =
-                    ValtisMuted,
-                fontSize = 13.sp
-            )
+            Row(
 
-            if (
-                obligation.projectedShortfall > 0.009
+                modifier =
+                    Modifier.fillMaxWidth(),
+
+                horizontalArrangement =
+                    Arrangement.SpaceBetween
             ) {
 
-                Spacer(
-                    Modifier.height(4.dp)
+                Text(
+                    text =
+                        "Pagos restantes",
+
+                    color =
+                        ValtisMuted,
+
+                    fontSize =
+                        12.sp
                 )
 
                 Text(
                     text =
-                        "Faltante proyectado: ${
+                        deuda.pagosRestantes
+                            .toString(),
+
+                    color =
+                        ValtisText,
+
+                    fontSize =
+                        13.sp,
+
+                    fontWeight =
+                        FontWeight.Bold
+                )
+            }
+
+            Spacer(
+                Modifier.height(5.dp)
+            )
+
+            Row(
+
+                modifier =
+                    Modifier.fillMaxWidth(),
+
+                horizontalArrangement =
+                    Arrangement.SpaceBetween
+            ) {
+
+                Text(
+                    text =
+                        "Pago programado",
+
+                    color =
+                        ValtisMuted,
+
+                    fontSize =
+                        12.sp
+                )
+
+                Text(
+                    text =
+                        money(
+                            deuda.montoPago
+                        ),
+
+                    color =
+                        ValtisText,
+
+                    fontSize =
+                        13.sp,
+
+                    fontWeight =
+                        FontWeight.Bold
+                )
+            }
+
+            Spacer(
+                Modifier.height(5.dp)
+            )
+
+            Row(
+
+                modifier =
+                    Modifier.fillMaxWidth(),
+
+                horizontalArrangement =
+                    Arrangement.SpaceBetween
+            ) {
+
+                Text(
+                    text =
+                        "Próximo pago",
+
+                    color =
+                        ValtisMuted,
+
+                    fontSize =
+                        12.sp
+                )
+
+                Text(
+                    text =
+                        formatDate(
+                            millisToLocalDate(
+                                deuda.fechaProximoPago
+                            )
+                        ),
+
+                    color =
+                        ValtisText,
+
+                    fontSize =
+                        13.sp,
+
+                    fontWeight =
+                        FontWeight.Bold
+                )
+            }
+
+            if (
+                deuda.faltanteAnterior >
+                    0.009
+            ) {
+
+                Spacer(
+                    Modifier.height(8.dp)
+                )
+
+                Text(
+                    text =
+                        "Faltante anterior: ${
                             money(
-                                obligation
-                                    .projectedShortfall
+                                deuda.faltanteAnterior
                             )
                         }",
+
                     color =
                         ValtisRed,
-                    fontSize = 13.sp
+
+                    fontSize =
+                        12.sp,
+
+                    fontWeight =
+                        FontWeight.SemiBold
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun StatusBadge(
+    vencida: Boolean,
+    diasRestantes: Long
+) {
+
+    val text: String
+    val color: Color
+
+    when {
+
+        vencida -> {
+            text = "Vencida"
+            color = ValtisRed
+        }
+
+        diasRestantes == 0L -> {
+            text = "Hoy"
+            color = ValtisRed
+        }
+
+        diasRestantes == 1L -> {
+            text = "Mañana"
+            color = ValtisOrange
+        }
+
+        diasRestantes <= 7L -> {
+            text = "En $diasRestantes días"
+            color = ValtisOrange
+        }
+
+        else -> {
+            text = "Programada"
+            color = ValtisGreen
+        }
+    }
+
+    Surface(
+
+        shape =
+            RoundedCornerShape(50.dp),
+
+        color =
+            color.copy(alpha = 0.10f)
+    ) {
+
+        Text(
+
+            text =
+                text,
+
+            color =
+                color,
+
+            fontSize =
+                11.sp,
+
+            fontWeight =
+                FontWeight.Bold,
+
+            modifier =
+                Modifier.padding(
+                    horizontal = 10.dp,
+                    vertical = 6.dp
+                )
+        )
+    }
+}
+
+@Composable
+private fun MiniInfo(
+    modifier: Modifier,
+    title: String,
+    value: String
+) {
+
+    Column(
+        modifier =
+            modifier
+    ) {
+
+        Text(
+            text =
+                title,
+
+            color =
+                ValtisMuted,
+
+            fontSize =
+                10.sp
+        )
+
+        Spacer(
+            Modifier.height(3.dp)
+        )
+
+        Text(
+            text =
+                value,
+
+            color =
+                ValtisText,
+
+            fontSize =
+                12.sp,
+
+            fontWeight =
+                FontWeight.Bold
+        )
     }
 }
 
@@ -795,7 +1335,9 @@ private fun formatDate(
 
     return String.format(
         Locale.getDefault(),
+
         "%02d/%02d/%04d",
+
         date.dayOfMonth,
         date.monthValue,
         date.year
@@ -811,21 +1353,33 @@ private fun SummaryCard(
 ) {
 
     Surface(
-        modifier = modifier,
+
+        modifier =
+            modifier,
+
         shape =
             RoundedCornerShape(20.dp),
-        color = Color.White
+
+        color =
+            Color.White
     ) {
 
         Column(
+
             modifier =
                 Modifier.padding(17.dp)
+
         ) {
 
             Text(
-                text = title,
-                color = ValtisMuted,
-                fontSize = 13.sp
+                text =
+                    title,
+
+                color =
+                    ValtisMuted,
+
+                fontSize =
+                    13.sp
             )
 
             Spacer(
@@ -833,10 +1387,191 @@ private fun SummaryCard(
             )
 
             Text(
-                text = value,
-                color = color,
-                fontSize = 21.sp,
-                fontWeight = FontWeight.Bold
+                text =
+                    value,
+
+                color =
+                    color,
+
+                fontSize =
+                    21.sp,
+
+                fontWeight =
+                    FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+private fun ActivityCard(
+    title: String,
+    amount: Double,
+    date: Long?
+) {
+
+    Surface(
+
+        modifier =
+            Modifier.fillMaxWidth(),
+
+        shape =
+            RoundedCornerShape(18.dp),
+
+        color =
+            Color.White
+    ) {
+
+        Column(
+
+            modifier =
+                Modifier.padding(18.dp)
+
+        ) {
+
+            Text(
+                text =
+                    title,
+
+                color =
+                    ValtisText,
+
+                fontSize =
+                    15.sp,
+
+                fontWeight =
+                    FontWeight.SemiBold
+            )
+
+            Spacer(
+                Modifier.height(6.dp)
+            )
+
+            Text(
+                text =
+                    "Ingreso registrado: ${
+                        money(amount)
+                    }",
+
+                color =
+                    ValtisGreen,
+
+                fontSize =
+                    14.sp,
+
+                fontWeight =
+                    FontWeight.Bold
+            )
+
+            if (date != null) {
+
+                Spacer(
+                    Modifier.height(4.dp)
+                )
+
+                Text(
+                    text =
+                        "Fecha: ${
+                            formatDate(
+                                millisToLocalDate(date)
+                            )
+                        }",
+
+                    color =
+                        ValtisMuted,
+
+                    fontSize =
+                        12.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InsufficientFundsCard(
+    amount: Double
+) {
+
+    Surface(
+
+        modifier =
+            Modifier.fillMaxWidth(),
+
+        shape =
+            RoundedCornerShape(18.dp),
+
+        color =
+            Color(0xFFFFF4F4)
+    ) {
+
+        Column(
+
+            modifier =
+                Modifier.padding(18.dp)
+
+        ) {
+
+            Text(
+                text =
+                    "Fondos insuficientes",
+
+                color =
+                    ValtisRed,
+
+                fontSize =
+                    15.sp,
+
+                fontWeight =
+                    FontWeight.Bold
+            )
+
+            Spacer(
+                Modifier.height(5.dp)
+            )
+
+            Text(
+                text =
+                    "Esta nómina no alcanza para cubrir todo lo proyectado.",
+
+                color =
+                    ValtisText,
+
+                fontSize =
+                    13.sp
+            )
+
+            Spacer(
+                Modifier.height(5.dp)
+            )
+
+            Text(
+                text =
+                    "Faltante proyectado: ${money(amount)}",
+
+                color =
+                    ValtisRed,
+
+                fontSize =
+                    13.sp,
+
+                fontWeight =
+                    FontWeight.Bold
+            )
+
+            Spacer(
+                Modifier.height(5.dp)
+            )
+
+            Text(
+                text =
+                    "VALTIS continuará recalculando el apartado con las siguientes nóminas.",
+
+                color =
+                    ValtisMuted,
+
+                fontSize =
+                    12.sp
             )
         }
     }
@@ -848,10 +1583,19 @@ private fun SectionTitle(
 ) {
 
     Text(
-        text = title,
-        color = ValtisText,
-        fontSize = 18.sp,
-        fontWeight = FontWeight.Bold,
+
+        text =
+            title,
+
+        color =
+            ValtisText,
+
+        fontSize =
+            18.sp,
+
+        fontWeight =
+            FontWeight.Bold,
+
         modifier =
             Modifier.padding(top = 4.dp)
     )
@@ -864,23 +1608,34 @@ private fun EmptyCard(
 ) {
 
     Surface(
+
         modifier =
             Modifier.fillMaxWidth(),
+
         shape =
             RoundedCornerShape(18.dp),
+
         color =
             Color.White
     ) {
 
         Column(
+
             modifier =
                 Modifier.padding(18.dp)
+
         ) {
 
             Text(
-                text = title,
-                color = ValtisText,
-                fontSize = 15.sp,
+                text =
+                    title,
+
+                color =
+                    ValtisText,
+
+                fontSize =
+                    15.sp,
+
                 fontWeight =
                     FontWeight.SemiBold
             )
@@ -890,9 +1645,14 @@ private fun EmptyCard(
             )
 
             Text(
-                text = message,
-                color = ValtisMuted,
-                fontSize = 13.sp
+                text =
+                    message,
+
+                color =
+                    ValtisMuted,
+
+                fontSize =
+                    13.sp
             )
         }
     }
@@ -902,10 +1662,14 @@ private fun EmptyCard(
 private fun IngresosScreen() {
 
     ModuleScreen(
-        title = "Ingresos",
+        title =
+            "Ingresos",
+
         subtitle =
             "Registra y controla tus depósitos reales.",
-        action = "Registrar ingreso"
+
+        action =
+            "Registrar ingreso"
     )
 }
 
@@ -913,10 +1677,14 @@ private fun IngresosScreen() {
 private fun GastosScreen() {
 
     ModuleScreen(
-        title = "Gastos",
+        title =
+            "Gastos",
+
         subtitle =
             "Controla en qué estás utilizando tu dinero.",
-        action = "Registrar gasto"
+
+        action =
+            "Registrar gasto"
     )
 }
 
@@ -924,10 +1692,14 @@ private fun GastosScreen() {
 private fun CompromisosScreen() {
 
     ModuleScreen(
-        title = "Compromisos",
+        title =
+            "Compromisos",
+
         subtitle =
             "Administra tus pagos recurrentes y fechas límite.",
-        action = "Agregar compromiso"
+
+        action =
+            "Agregar compromiso"
     )
 }
 
@@ -935,10 +1707,14 @@ private fun CompromisosScreen() {
 private fun DeudasScreen() {
 
     ModuleScreen(
-        title = "Deudas",
+        title =
+            "Deudas",
+
         subtitle =
             "Consulta saldos, pagos y progreso.",
-        action = "Agregar deuda"
+
+        action =
+            "Agregar deuda"
     )
 }
 
@@ -950,10 +1726,12 @@ private fun ModuleScreen(
 ) {
 
     LazyColumn(
+
         modifier =
             Modifier
                 .fillMaxSize()
                 .padding(20.dp)
+
     ) {
 
         item {
@@ -963,10 +1741,17 @@ private fun ModuleScreen(
             )
 
             Text(
-                text = title,
-                color = ValtisText,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold
+                text =
+                    title,
+
+                color =
+                    ValtisText,
+
+                fontSize =
+                    28.sp,
+
+                fontWeight =
+                    FontWeight.Bold
             )
 
             Spacer(
@@ -974,9 +1759,14 @@ private fun ModuleScreen(
             )
 
             Text(
-                text = subtitle,
-                color = ValtisMuted,
-                fontSize = 14.sp
+                text =
+                    subtitle,
+
+                color =
+                    ValtisMuted,
+
+                fontSize =
+                    14.sp
             )
 
             Spacer(
@@ -984,26 +1774,36 @@ private fun ModuleScreen(
             )
 
             Surface(
+
                 modifier =
                     Modifier.fillMaxWidth(),
+
                 shape =
                     RoundedCornerShape(20.dp),
+
                 color =
                     ValtisBlue
             ) {
 
                 Box(
+
                     modifier =
                         Modifier
                             .fillMaxWidth()
                             .height(56.dp),
+
                     contentAlignment =
                         Alignment.Center
+
                 ) {
 
                     Text(
-                        text = action,
-                        color = ValtisWhite,
+                        text =
+                            action,
+
+                        color =
+                            ValtisWhite,
+
                         fontWeight =
                             FontWeight.Bold
                     )
@@ -1015,7 +1815,10 @@ private fun ModuleScreen(
             )
 
             EmptyCard(
-                title = "Aún no hay registros",
+
+                title =
+                    "Aún no hay registros",
+
                 message =
                     "Aquí aparecerá tu información cuando comiences a utilizar VALTIS."
             )

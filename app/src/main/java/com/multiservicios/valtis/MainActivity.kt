@@ -1,10 +1,5 @@
 package com.multiservicios.valtis
 
-import com.multiservicios.valtis.ui.ingresos.IngresosRealScreen
-import com.multiservicios.valtis.data.local.ValtisDatabaseProvider
-import com.multiservicios.valtis.ui.compromisos.CompromisosRealScreen
-import com.multiservicios.valtis.ui.gastos.GastosRealScreen
-
 import android.net.Uri
 import android.os.Bundle
 import android.view.ViewGroup
@@ -30,9 +25,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,9 +39,21 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.multiservicios.valtis.data.local.ValtisDatabaseProvider
+import com.multiservicios.valtis.finance.ObligationType
+import com.multiservicios.valtis.finance.PayrollDeposit
+import com.multiservicios.valtis.finance.PayrollFrequency
+import com.multiservicios.valtis.finance.SetAsideEngine
+import com.multiservicios.valtis.finance.SetAsideObligation
+import com.multiservicios.valtis.ui.compromisos.CompromisosRealScreen
+import com.multiservicios.valtis.ui.deudas.DeudasRealScreen
+import com.multiservicios.valtis.ui.gastos.GastosRealScreen
+import com.multiservicios.valtis.ui.ingresos.IngresosRealScreen
 import kotlinx.coroutines.delay
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.Locale
-import kotlin.math.ceil
 
 private val ValtisBlue = Color(0xFF163754)
 private val ValtisWhite = Color.White
@@ -70,15 +77,20 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ValtisApp() {
 
-    var showSplash by remember { mutableStateOf(true) }
+    var showSplash by remember {
+        mutableStateOf(true)
+    }
 
     if (showSplash) {
+
         ValtisSplashVideo(
             onFinished = {
                 showSplash = false
             }
         )
+
     } else {
+
         ValtisMain()
     }
 }
@@ -91,6 +103,7 @@ private fun ValtisSplashVideo(
     val context = LocalContext.current
 
     val videoView = remember {
+
         VideoView(context).apply {
 
             setVideoURI(
@@ -113,6 +126,7 @@ private fun ValtisSplashVideo(
     }
 
     DisposableEffect(Unit) {
+
         onDispose {
             videoView.stopPlayback()
         }
@@ -127,12 +141,14 @@ private fun ValtisSplashVideo(
 
         androidx.compose.ui.viewinterop.AndroidView(
             factory = {
+
                 FrameLayout(context).apply {
 
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
+                    layoutParams =
+                        ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
 
                     addView(
                         videoView,
@@ -148,7 +164,9 @@ private fun ValtisSplashVideo(
     }
 
     LaunchedEffect(Unit) {
+
         delay(12000)
+
         onFinished()
     }
 }
@@ -174,6 +192,7 @@ private fun ValtisMain() {
     Scaffold(
         containerColor = ValtisBackground,
         bottomBar = {
+
             NavigationBar(
                 containerColor = Color.White
             ) {
@@ -186,6 +205,7 @@ private fun ValtisMain() {
                             selected = section
                         },
                         icon = {
+
                             Text(
                                 text = section.symbol,
                                 fontSize = 22.sp,
@@ -193,6 +213,7 @@ private fun ValtisMain() {
                             )
                         },
                         label = {
+
                             Text(
                                 text = section.title,
                                 fontSize = 10.sp
@@ -225,7 +246,7 @@ private fun ValtisMain() {
                     CompromisosRealScreen()
 
                 ValtisSection.DEUDAS ->
-                    DeudasScreen()
+                    DeudasRealScreen()
             }
         }
     }
@@ -248,63 +269,132 @@ private fun DashboardScreen() {
     val compromisos by dao.observarCompromisos()
         .collectAsState(initial = emptyList())
 
+    val deudas by dao.observarDeudas()
+        .collectAsState(initial = emptyList())
+
     val gastos by dao.observarGastos()
         .collectAsState(initial = emptyList())
 
-    val ultimoIngreso = ingresos.firstOrNull()
+    val ultimoIngreso =
+        ingresos.firstOrNull()
 
-    val gastosDesdeUltimoIngreso = remember(
-        ultimoIngreso,
-        gastos
-    ) {
-        ultimoIngreso?.let { ingreso ->
+    val gastosDesdeUltimoIngreso =
+        remember(
+            ultimoIngreso,
             gastos
-                .filter { it.fecha >= ingreso.fecha }
-                .sumOf { it.monto }
-        } ?: 0.0
-    }
+        ) {
 
-    val financialResult = remember(
-        ultimoIngreso,
-        compromisos
-    ) {
+            ultimoIngreso?.let { ingreso ->
 
-        if (ultimoIngreso == null) {
+                gastos
+                    .filter {
+                        it.fecha >= ingreso.fecha
+                    }
+                    .sumOf {
+                        it.monto
+                    }
 
-            null
+            } ?: 0.0
+        }
 
-        } else {
+    val financialResult =
+        remember(
+            ultimoIngreso,
+            compromisos,
+            deudas
+        ) {
 
-            FinancialEngine.calculate(
-                deposit = ValtisDeposit(
-                    amount = ultimoIngreso.monto
-                ),
-                commitments = compromisos.map { compromiso ->
+            if (ultimoIngreso == null) {
 
-                    ValtisCommitment(
+                null
+
+            } else {
+
+                val obligaciones =
+                    mutableListOf<SetAsideObligation>()
+
+                /*
+                 * COMPROMISOS
+                 */
+
+                compromisos.forEach { compromiso ->
+
+                    obligaciones += SetAsideObligation(
                         id = compromiso.id,
                         name = compromiso.nombre,
                         amount = compromiso.monto,
-                        depositsUntilDue = depositsUntilDueWeekly(
-                            fromDate = ultimoIngreso.fecha,
-                            dueDate = compromiso.fechaVencimiento
-                        ),
-                        alreadySetAside = compromiso.apartado
+                        dueDate =
+                            millisToLocalDate(
+                                compromiso.fechaVencimiento
+                            ),
+                        alreadySetAside =
+                            compromiso.apartado,
+                        previousShortfall = 0.0,
+                        active = true,
+                        type =
+                            ObligationType.COMPROMISO
                     )
                 }
-            )
+
+                /*
+                 * DEUDAS RECURRENTES
+                 */
+
+                deudas
+                    .filter { it.activa }
+                    .forEach { deuda ->
+
+                        obligaciones +=
+                            SetAsideObligation(
+                                id = deuda.id,
+                                name = deuda.nombre,
+                                amount = deuda.montoPago,
+                                dueDate =
+                                    millisToLocalDate(
+                                        deuda.fechaProximoPago
+                                    ),
+                                alreadySetAside =
+                                    deuda.apartado,
+                                previousShortfall =
+                                    deuda.faltanteAnterior,
+                                active =
+                                    deuda.activa,
+                                type =
+                                    ObligationType.DEUDA
+                            )
+                    }
+
+                SetAsideEngine.calculate(
+                    deposit =
+                        PayrollDeposit(
+                            id = ultimoIngreso.id,
+                            amount = ultimoIngreso.monto,
+                            date =
+                                millisToLocalDate(
+                                    ultimoIngreso.fecha
+                                )
+                        ),
+                    obligations =
+                        obligaciones,
+                    frequency =
+                        PayrollFrequency.WEEKLY
+                )
+            }
         }
-    }
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement =
+            Arrangement.spacedBy(14.dp)
     ) {
 
         item {
-            Spacer(Modifier.height(18.dp))
+
+            Spacer(
+                Modifier.height(18.dp)
+            )
 
             Text(
                 text = "Hola 👋",
@@ -312,7 +402,9 @@ private fun DashboardScreen() {
                 fontSize = 15.sp
             )
 
-            Spacer(Modifier.height(4.dp))
+            Spacer(
+                Modifier.height(4.dp)
+            )
 
             Text(
                 text = "Tu resumen financiero",
@@ -325,119 +417,190 @@ private fun DashboardScreen() {
         if (financialResult == null) {
 
             item {
+
                 EmptyCard(
                     title = "Aún no tienes ingresos",
-                    message = "Registra tu primer depósito real para que VALTIS pueda calcular tu dinero disponible."
+                    message =
+                        "Registra tu primer depósito real para que VALTIS pueda calcular tu dinero disponible."
                 )
             }
 
             item {
+
                 EmptyCard(
-                    title = "Tus compromisos",
-                    message = if (compromisos.isEmpty()) {
-                        "Todavía no tienes compromisos registrados."
-                    } else {
-                        "Tienes ${compromisos.size} compromiso(s) registrado(s)."
-                    }
+                    title = "Tus obligaciones",
+                    message =
+                        if (
+                            compromisos.isEmpty() &&
+                            deudas.isEmpty()
+                        ) {
+                            "Todavía no tienes compromisos ni deudas registrados."
+                        } else {
+                            "Tienes ${
+                                compromisos.size +
+                                    deudas.count { it.activa }
+                            } obligación(es) registrada(s)."
+                        }
                 )
             }
 
         } else {
 
             val disponibleDespuesDeGastos =
-                (financialResult.available - gastosDesdeUltimoIngreso)
+                (
+                    financialResult.availableToSpend -
+                        gastosDesdeUltimoIngreso
+                    )
                     .coerceAtLeast(0.0)
 
             item {
-                BalanceCard(disponibleDespuesDeGastos)
+
+                BalanceCard(
+                    available =
+                        disponibleDespuesDeGastos
+                )
             }
 
             item {
+
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(12.dp)
                 ) {
+
                     SummaryCard(
-                        modifier = Modifier.weight(1f),
+                        modifier =
+                            Modifier.weight(1f),
                         title = "Ingreso",
-                        value = money(financialResult.deposit),
+                        value =
+                            money(
+                                financialResult.depositAmount
+                            ),
                         color = ValtisGreen
                     )
 
                     SummaryCard(
-                        modifier = Modifier.weight(1f),
+                        modifier =
+                            Modifier.weight(1f),
                         title = "Apartado",
-                        value = money(financialResult.totalSetAside),
+                        value =
+                            money(
+                                financialResult
+                                    .totalRecommendedSetAside
+                            ),
                         color = ValtisRed
                     )
                 }
             }
 
             item {
+
                 SummaryCard(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier =
+                        Modifier.fillMaxWidth(),
                     title = "Gastos",
-                    value = money(gastosDesdeUltimoIngreso),
+                    value =
+                        money(
+                            gastosDesdeUltimoIngreso
+                        ),
                     color = ValtisRed
                 )
             }
 
             item {
-                SectionTitle("Próximos compromisos")
+
+                SectionTitle(
+                    "Próximas obligaciones"
+                )
             }
 
-            if (financialResult.commitments.isEmpty()) {
+            if (
+                financialResult.obligations.isEmpty()
+            ) {
 
                 item {
+
                     EmptyCard(
-                        title = "Sin compromisos registrados",
-                        message = "Agrega tus próximos pagos para que VALTIS pueda calcular cuánto apartar."
+                        title =
+                            "Sin obligaciones registradas",
+                        message =
+                            "Agrega compromisos o deudas para que VALTIS calcule cuánto apartar."
                     )
                 }
 
             } else {
 
-                items(financialResult.commitments.size) { index ->
+                items(
+                    financialResult.obligations.size
+                ) { index ->
 
-                    val commitment =
-                        financialResult.commitments[index]
+                    val obligation =
+                        financialResult.obligations[index]
 
-                    CommitmentCard(commitment)
+                    ObligationCard(
+                        obligation = obligation
+                    )
+                }
+            }
+
+            if (
+                financialResult.hasInsufficientFunds
+            ) {
+
+                item {
+
+                    EmptyCard(
+                        title =
+                            "Fondos insuficientes",
+                        message =
+                            "Esta nómina no alcanza para cubrir todas las necesidades proyectadas. VALTIS conservará el faltante para continuar el cálculo en las siguientes nóminas."
+                    )
                 }
             }
 
             item {
-                SectionTitle("Actividad reciente")
+
+                SectionTitle(
+                    "Actividad reciente"
+                )
             }
 
             item {
+
                 EmptyCard(
-                    title = ultimoIngreso!!.concepto,
-                    message = "Último ingreso registrado: ${money(ultimoIngreso!!.monto)}"
+                    title =
+                        ultimoIngreso?.concepto ?: "Último ingreso",
+                    message =
+                        "Último ingreso registrado: ${
+                            money(
+                                ultimoIngreso?.monto ?: 0.0
+                            )
+                        }"
                 )
             }
         }
 
         item {
-            Spacer(Modifier.height(20.dp))
+
+            Spacer(
+                Modifier.height(20.dp)
+            )
         }
     }
 }
 
-private fun depositsUntilDueWeekly(
-    fromDate: Long,
-    dueDate: Long
-): Int {
+private fun millisToLocalDate(
+    millis: Long
+): LocalDate {
 
-    val millisecondsPerDay = 24L * 60L * 60L * 1000L
-
-    val daysUntilDue =
-        ((dueDate - fromDate).toDouble() / millisecondsPerDay)
-            .coerceAtLeast(0.0)
-
-    return ceil(daysUntilDue / 7.0)
-        .toInt()
-        .coerceAtLeast(1)
+    return Instant
+        .ofEpochMilli(millis)
+        .atZone(
+            ZoneId.systemDefault()
+        )
+        .toLocalDate()
 }
 
 @Composable
@@ -446,22 +609,31 @@ private fun BalanceCard(
 ) {
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        color = ValtisBlue
+        modifier =
+            Modifier.fillMaxWidth(),
+        shape =
+            RoundedCornerShape(24.dp),
+        color =
+            ValtisBlue
     ) {
 
         Column(
-            modifier = Modifier.padding(22.dp)
+            modifier =
+                Modifier.padding(22.dp)
         ) {
 
             Text(
                 text = "Disponible real",
-                color = ValtisWhite.copy(alpha = 0.75f),
+                color =
+                    ValtisWhite.copy(
+                        alpha = 0.75f
+                    ),
                 fontSize = 14.sp
             )
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(
+                Modifier.height(6.dp)
+            )
 
             Text(
                 text = money(available),
@@ -470,11 +642,17 @@ private fun BalanceCard(
                 fontWeight = FontWeight.Bold
             )
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(
+                Modifier.height(16.dp)
+            )
 
             Text(
-                text = "Después de considerar tus próximos compromisos",
-                color = ValtisWhite.copy(alpha = 0.8f),
+                text =
+                    "Después de considerar apartados y gastos",
+                color =
+                    ValtisWhite.copy(
+                        alpha = 0.8f
+                    ),
                 fontSize = 12.sp
             )
         }
@@ -482,45 +660,146 @@ private fun BalanceCard(
 }
 
 @Composable
-private fun CommitmentCard(
-    commitment: ValtisCommitmentResult
+private fun ObligationCard(
+    obligation:
+        com.multiservicios.valtis.finance.SetAsideResult
 ) {
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        color = Color.White
+        modifier =
+            Modifier.fillMaxWidth(),
+        shape =
+            RoundedCornerShape(18.dp),
+        color =
+            Color.White
     ) {
 
         Column(
-            modifier = Modifier.padding(18.dp)
+            modifier =
+                Modifier.padding(18.dp)
         ) {
 
-            Text(
-                text = commitment.name,
-                color = ValtisText,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.SpaceBetween
+            ) {
+
+                Text(
+                    text =
+                        obligation.name,
+                    color =
+                        ValtisText,
+                    fontSize = 16.sp,
+                    fontWeight =
+                        FontWeight.SemiBold
+                )
+
+                Text(
+                    text =
+                        if (
+                            obligation.type ==
+                                ObligationType.DEUDA
+                        ) {
+                            "Deuda"
+                        } else {
+                            "Compromiso"
+                        },
+                    color =
+                        ValtisMuted,
+                    fontSize = 12.sp
+                )
+            }
+
+            Spacer(
+                Modifier.height(6.dp)
             )
 
-            Spacer(Modifier.height(6.dp))
-
             Text(
-                text = "Apartar ahora: ${money(commitment.recommendedSetAside)}",
-                color = ValtisGreen,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(Modifier.height(4.dp))
-
-            Text(
-                text = "Pendiente después de este depósito: ${money(commitment.remainingAmount)}",
-                color = ValtisMuted,
+                text =
+                    "Vence: ${
+                        formatDate(
+                            obligation.dueDate
+                        )
+                    }",
+                color =
+                    ValtisMuted,
                 fontSize = 13.sp
             )
+
+            Spacer(
+                Modifier.height(8.dp)
+            )
+
+            Text(
+                text =
+                    "Apartar ahora: ${
+                        money(
+                            obligation
+                                .recommendedSetAside
+                        )
+                    }",
+                color =
+                    ValtisGreen,
+                fontSize = 14.sp,
+                fontWeight =
+                    FontWeight.Bold
+            )
+
+            Spacer(
+                Modifier.height(4.dp)
+            )
+
+            Text(
+                text =
+                    "Pendiente: ${
+                        money(
+                            obligation
+                                .remainingAmount
+                        )
+                    }",
+                color =
+                    ValtisMuted,
+                fontSize = 13.sp
+            )
+
+            if (
+                obligation.projectedShortfall > 0.009
+            ) {
+
+                Spacer(
+                    Modifier.height(4.dp)
+                )
+
+                Text(
+                    text =
+                        "Faltante proyectado: ${
+                            money(
+                                obligation
+                                    .projectedShortfall
+                            )
+                        }",
+                    color =
+                        ValtisRed,
+                    fontSize = 13.sp
+                )
+            }
         }
     }
+}
+
+private fun formatDate(
+    date: LocalDate
+): String {
+
+    return String.format(
+        Locale.getDefault(),
+        "%02d/%02d/%04d",
+        date.dayOfMonth,
+        date.monthValue,
+        date.year
+    )
 }
 
 @Composable
@@ -533,12 +812,14 @@ private fun SummaryCard(
 
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
+        shape =
+            RoundedCornerShape(20.dp),
         color = Color.White
     ) {
 
         Column(
-            modifier = Modifier.padding(17.dp)
+            modifier =
+                Modifier.padding(17.dp)
         ) {
 
             Text(
@@ -547,7 +828,9 @@ private fun SummaryCard(
                 fontSize = 13.sp
             )
 
-            Spacer(Modifier.height(7.dp))
+            Spacer(
+                Modifier.height(7.dp)
+            )
 
             Text(
                 text = value,
@@ -560,14 +843,17 @@ private fun SummaryCard(
 }
 
 @Composable
-private fun SectionTitle(title: String) {
+private fun SectionTitle(
+    title: String
+) {
 
     Text(
         text = title,
         color = ValtisText,
         fontSize = 18.sp,
         fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(top = 4.dp)
+        modifier =
+            Modifier.padding(top = 4.dp)
     )
 }
 
@@ -578,23 +864,30 @@ private fun EmptyCard(
 ) {
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        color = Color.White
+        modifier =
+            Modifier.fillMaxWidth(),
+        shape =
+            RoundedCornerShape(18.dp),
+        color =
+            Color.White
     ) {
 
         Column(
-            modifier = Modifier.padding(18.dp)
+            modifier =
+                Modifier.padding(18.dp)
         ) {
 
             Text(
                 text = title,
                 color = ValtisText,
                 fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold
+                fontWeight =
+                    FontWeight.SemiBold
             )
 
-            Spacer(Modifier.height(5.dp))
+            Spacer(
+                Modifier.height(5.dp)
+            )
 
             Text(
                 text = message,
@@ -610,7 +903,8 @@ private fun IngresosScreen() {
 
     ModuleScreen(
         title = "Ingresos",
-        subtitle = "Registra y controla tus depósitos reales.",
+        subtitle =
+            "Registra y controla tus depósitos reales.",
         action = "Registrar ingreso"
     )
 }
@@ -620,7 +914,8 @@ private fun GastosScreen() {
 
     ModuleScreen(
         title = "Gastos",
-        subtitle = "Controla en qué estás utilizando tu dinero.",
+        subtitle =
+            "Controla en qué estás utilizando tu dinero.",
         action = "Registrar gasto"
     )
 }
@@ -630,7 +925,8 @@ private fun CompromisosScreen() {
 
     ModuleScreen(
         title = "Compromisos",
-        subtitle = "Administra tus pagos recurrentes y fechas límite.",
+        subtitle =
+            "Administra tus pagos recurrentes y fechas límite.",
         action = "Agregar compromiso"
     )
 }
@@ -640,7 +936,8 @@ private fun DeudasScreen() {
 
     ModuleScreen(
         title = "Deudas",
-        subtitle = "Consulta saldos, pagos y progreso.",
+        subtitle =
+            "Consulta saldos, pagos y progreso.",
         action = "Agregar deuda"
     )
 }
@@ -653,14 +950,17 @@ private fun ModuleScreen(
 ) {
 
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(20.dp)
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(20.dp)
     ) {
 
         item {
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(
+                Modifier.height(18.dp)
+            )
 
             Text(
                 text = title,
@@ -669,7 +969,9 @@ private fun ModuleScreen(
                 fontWeight = FontWeight.Bold
             )
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(
+                Modifier.height(6.dp)
+            )
 
             Text(
                 text = subtitle,
@@ -677,40 +979,54 @@ private fun ModuleScreen(
                 fontSize = 14.sp
             )
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(
+                Modifier.height(24.dp)
+            )
 
             Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                color = ValtisBlue
+                modifier =
+                    Modifier.fillMaxWidth(),
+                shape =
+                    RoundedCornerShape(20.dp),
+                color =
+                    ValtisBlue
             ) {
 
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    contentAlignment = Alignment.Center
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                    contentAlignment =
+                        Alignment.Center
                 ) {
 
                     Text(
                         text = action,
                         color = ValtisWhite,
-                        fontWeight = FontWeight.Bold
+                        fontWeight =
+                            FontWeight.Bold
                     )
                 }
             }
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(
+                Modifier.height(18.dp)
+            )
 
             EmptyCard(
                 title = "Aún no hay registros",
-                message = "Aquí aparecerá tu información cuando comiences a utilizar VALTIS."
+                message =
+                    "Aquí aparecerá tu información cuando comiences a utilizar VALTIS."
             )
         }
     }
 }
 
-private fun money(value: Double): String {
+private fun money(
+    value: Double
+): String {
+
     return String.format(
         Locale.US,
         "$%,.2f",

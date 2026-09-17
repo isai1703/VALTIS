@@ -2,17 +2,20 @@ package com.multiservicios.valtis.ui.ingresos
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.multiservicios.valtis.FinancialEngine
-import com.multiservicios.valtis.ValtisCommitment
-import com.multiservicios.valtis.ValtisDeposit
 import com.multiservicios.valtis.data.local.IngresoRepository
 import com.multiservicios.valtis.data.local.entities.IngresoEntity
+import com.multiservicios.valtis.finance.ObligationType
+import com.multiservicios.valtis.finance.PayrollDeposit
+import com.multiservicios.valtis.finance.PayrollFrequency
+import com.multiservicios.valtis.finance.SetAsideEngine
+import com.multiservicios.valtis.finance.SetAsideObligation
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.util.concurrent.TimeUnit
-import kotlin.math.ceil
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 
 class IngresosViewModel(
     private val repository: IngresoRepository
@@ -42,84 +45,203 @@ class IngresosViewModel(
     ) {
         viewModelScope.launch {
 
-            val ingreso = IngresoEntity(
-                monto = monto,
-                concepto = concepto,
-                fecha = fecha,
-                fuente = fuente
+            repository.insertarIngreso(
+                IngresoEntity(
+                    monto = monto,
+                    concepto = concepto,
+                    fecha = fecha,
+                    fuente = fuente
+                )
             )
 
-            repository.insertarIngreso(ingreso)
+            procesarApartados(
+                monto = monto,
+                fecha = fecha
+            )
+        }
+    }
 
-            val compromisos =
-                repository.obtenerCompromisos()
+    private suspend fun procesarApartados(
+        monto: Double,
+        fecha: Long
+    ) {
 
-            if (compromisos.isEmpty()) {
-                return@launch
-            }
+        /*
+         * ============================================================
+         * UNA SOLA NÓMINA
+         * ============================================================
+         *
+         * Compromisos y deudas entran juntos al mismo motor.
+         *
+         * Esto evita que:
+         *
+         *   Compromisos -> gasten toda la nómina
+         *   Deudas      -> vuelvan a calcular usando la misma nómina
+         *
+         * Cada peso disponible se distribuye una sola vez.
+         */
 
-            val resultado =
-                FinancialEngine.calculate(
-                    deposit = ValtisDeposit(
-                        amount = monto
-                    ),
-                    commitments = compromisos.map { compromiso ->
+        val compromisos =
+            repository.obtenerCompromisos()
 
-                        ValtisCommitment(
+        val deudas =
+            repository.obtenerDeudasActivas()
+
+        if (
+            compromisos.isEmpty() &&
+            deudas.isEmpty()
+        ) {
+            return
+        }
+
+        val obligaciones =
+            mutableListOf<SetAsideObligation>()
+
+        /*
+         * ------------------------------------------------------------
+         * COMPROMISOS
+         * ------------------------------------------------------------
+         */
+
+        compromisos.forEach { compromiso ->
+
+            obligaciones += SetAsideObligation(
+                id = compromiso.id,
+                name = compromiso.nombre,
+                amount = compromiso.monto,
+                dueDate = millisToLocalDate(
+                    compromiso.fechaVencimiento
+                ),
+                alreadySetAside =
+                    compromiso.apartado,
+                previousShortfall = 0.0,
+                active = true,
+                type = ObligationType.COMPROMISO
+            )
+        }
+
+        /*
+         * ------------------------------------------------------------
+         * DEUDAS RECURRENTES
+         * ------------------------------------------------------------
+         */
+
+        deudas.forEach { deuda ->
+
+            obligaciones += SetAsideObligation(
+                id = deuda.id,
+                name = deuda.nombre,
+                amount = deuda.montoPago,
+                dueDate = millisToLocalDate(
+                    deuda.fechaProximoPago
+                ),
+                alreadySetAside =
+                    deuda.apartado,
+                previousShortfall =
+                    deuda.faltanteAnterior,
+                active =
+                    deuda.activa,
+                type = ObligationType.DEUDA
+            )
+        }
+
+        /*
+         * ------------------------------------------------------------
+         * CÁLCULO ÚNICO
+         * ------------------------------------------------------------
+         */
+
+        val resultado =
+            SetAsideEngine.calculate(
+                deposit = PayrollDeposit(
+                    id = 0L,
+                    amount = monto,
+                    date = millisToLocalDate(fecha)
+                ),
+                obligations = obligaciones,
+                frequency = PayrollFrequency.WEEKLY
+            )
+
+        /*
+         * ------------------------------------------------------------
+         * GUARDAR RESULTADOS
+         * ------------------------------------------------------------
+         */
+
+        resultado.obligations.forEach { calculado ->
+
+            when (calculado.type) {
+
+                ObligationType.COMPROMISO -> {
+
+                    val compromiso =
+                        compromisos.firstOrNull {
+                            it.id == calculado.obligationId
+                        }
+
+                    if (compromiso != null) {
+
+                        val nuevoApartado =
+                            compromiso.apartado +
+                                calculado.recommendedSetAside
+
+                        repository.actualizarApartado(
                             id = compromiso.id,
-                            name = compromiso.nombre,
-                            amount = compromiso.monto,
-                            depositsUntilDue =
-                                depositsUntilDueWeekly(
-                                    fromDate = fecha,
-                                    dueDate = compromiso.fechaVencimiento
-                                ),
-                            alreadySetAside = compromiso.apartado
+                            apartado =
+                                nuevoApartado
                         )
                     }
-                )
+                }
 
-            resultado.commitments.forEach { calculado ->
+                ObligationType.DEUDA -> {
 
-                val compromiso =
-                    compromisos.firstOrNull {
-                        it.id == calculado.id
+                    val deuda =
+                        deudas.firstOrNull {
+                            it.id == calculado.obligationId
+                        }
+
+                    if (deuda != null) {
+
+                        val nuevoApartado =
+                            deuda.apartado +
+                                calculado.recommendedSetAside
+
+                        repository.actualizarEstadoDeuda(
+                            id = deuda.id,
+                            pagosRestantes =
+                                deuda.pagosRestantes,
+                            fechaProximoPago =
+                                deuda.fechaProximoPago,
+                            apartado =
+                                nuevoApartado,
+                            faltanteAnterior =
+                                calculado.projectedShortfall,
+                            activa =
+                                deuda.activa
+                        )
                     }
-
-                if (compromiso != null) {
-
-                    val nuevoApartado =
-                        compromiso.apartado +
-                            calculado.recommendedSetAside
-
-                    repository.actualizarApartado(
-                        id = compromiso.id,
-                        apartado = nuevoApartado
-                    )
                 }
             }
         }
     }
 
-    fun eliminarIngreso(ingreso: IngresoEntity) {
+    fun eliminarIngreso(
+        ingreso: IngresoEntity
+    ) {
         viewModelScope.launch {
             repository.eliminarIngreso(ingreso)
         }
     }
 
-    private fun depositsUntilDueWeekly(
-        fromDate: Long,
-        dueDate: Long
-    ): Int {
+    private fun millisToLocalDate(
+        millis: Long
+    ): LocalDate {
 
-        val days =
-            TimeUnit.MILLISECONDS.toDays(
-                (dueDate - fromDate)
-                    .coerceAtLeast(0L)
+        return Instant
+            .ofEpochMilli(millis)
+            .atZone(
+                ZoneId.systemDefault()
             )
-
-        return ceil(days / 7.0)
-            .toInt()
-            .coerceAtLeast(1)
+            .toLocalDate()
     }
 }

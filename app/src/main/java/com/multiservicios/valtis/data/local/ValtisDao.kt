@@ -5,6 +5,7 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
 import com.multiservicios.valtis.data.local.entities.CompromisoEntity
+import com.multiservicios.valtis.data.local.entities.DeudaEntity
 import com.multiservicios.valtis.data.local.entities.GastoEntity
 import com.multiservicios.valtis.data.local.entities.IngresoEntity
 import kotlinx.coroutines.flow.Flow
@@ -45,6 +46,39 @@ interface ValtisDao {
     suspend fun actualizarApartado(
         id: Long,
         apartado: Double
+    )
+
+
+    // DEUDAS RECURRENTES
+
+    @Insert
+    suspend fun insertarDeuda(deuda: DeudaEntity)
+
+    @Query("SELECT * FROM deudas ORDER BY fechaProximoPago ASC")
+    fun observarDeudas(): Flow<List<DeudaEntity>>
+
+    @Query("SELECT * FROM deudas WHERE activa = 1 ORDER BY fechaProximoPago ASC")
+    suspend fun obtenerDeudasActivas(): List<DeudaEntity>
+
+    @Delete
+    suspend fun eliminarDeuda(deuda: DeudaEntity)
+
+    @Query("""
+        UPDATE deudas
+        SET pagosRestantes = :pagosRestantes,
+            fechaProximoPago = :fechaProximoPago,
+            apartado = :apartado,
+            faltanteAnterior = :faltanteAnterior,
+            activa = :activa
+        WHERE id = :id
+    """)
+    suspend fun actualizarEstadoDeuda(
+        id: Long,
+        pagosRestantes: Int,
+        fechaProximoPago: Long,
+        apartado: Double,
+        faltanteAnterior: Double,
+        activa: Boolean
     )
 
 

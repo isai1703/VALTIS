@@ -1,5 +1,6 @@
 package com.multiservicios.valtis.data.local
 
+import com.multiservicios.valtis.data.local.entities.CompromisoEntity
 import com.multiservicios.valtis.data.local.entities.IngresoEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -19,5 +20,15 @@ class IngresoRepository(
 
     suspend fun eliminarIngreso(ingreso: IngresoEntity) {
         dao.eliminarIngreso(ingreso)
+    }
+
+    suspend fun obtenerCompromisos(): List<CompromisoEntity> =
+        dao.obtenerCompromisos()
+
+    suspend fun actualizarApartado(
+        id: Long,
+        apartado: Double
+    ) {
+        dao.actualizarApartado(id, apartado)
     }
 }

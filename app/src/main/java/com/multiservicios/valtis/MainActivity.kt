@@ -3,6 +3,7 @@ package com.multiservicios.valtis
 import com.multiservicios.valtis.ui.ingresos.IngresosRealScreen
 import com.multiservicios.valtis.data.local.ValtisDatabaseProvider
 import com.multiservicios.valtis.ui.compromisos.CompromisosRealScreen
+import com.multiservicios.valtis.ui.gastos.GastosRealScreen
 
 import android.net.Uri
 import android.os.Bundle
@@ -218,7 +219,7 @@ private fun ValtisMain() {
                     IngresosRealScreen()
 
                 ValtisSection.GASTOS ->
-                    GastosScreen()
+                    GastosRealScreen()
 
                 ValtisSection.COMPROMISOS ->
                     CompromisosRealScreen()
@@ -247,7 +248,21 @@ private fun DashboardScreen() {
     val compromisos by dao.observarCompromisos()
         .collectAsState(initial = emptyList())
 
+    val gastos by dao.observarGastos()
+        .collectAsState(initial = emptyList())
+
     val ultimoIngreso = ingresos.firstOrNull()
+
+    val gastosDesdeUltimoIngreso = remember(
+        ultimoIngreso,
+        gastos
+    ) {
+        ultimoIngreso?.let { ingreso ->
+            gastos
+                .filter { it.fecha >= ingreso.fecha }
+                .sumOf { it.monto }
+        } ?: 0.0
+    }
 
     val financialResult = remember(
         ultimoIngreso,
@@ -267,6 +282,7 @@ private fun DashboardScreen() {
                 commitments = compromisos.map { compromiso ->
 
                     ValtisCommitment(
+                        id = compromiso.id,
                         name = compromiso.nombre,
                         amount = compromiso.monto,
                         depositsUntilDue = depositsUntilDueWeekly(
@@ -288,7 +304,6 @@ private fun DashboardScreen() {
     ) {
 
         item {
-
             Spacer(Modifier.height(18.dp))
 
             Text(
@@ -310,7 +325,6 @@ private fun DashboardScreen() {
         if (financialResult == null) {
 
             item {
-
                 EmptyCard(
                     title = "Aún no tienes ingresos",
                     message = "Registra tu primer depósito real para que VALTIS pueda calcular tu dinero disponible."
@@ -318,7 +332,6 @@ private fun DashboardScreen() {
             }
 
             item {
-
                 EmptyCard(
                     title = "Tus compromisos",
                     message = if (compromisos.isEmpty()) {
@@ -331,17 +344,19 @@ private fun DashboardScreen() {
 
         } else {
 
+            val disponibleDespuesDeGastos =
+                (financialResult.available - gastosDesdeUltimoIngreso)
+                    .coerceAtLeast(0.0)
+
             item {
-                BalanceCard(financialResult.available)
+                BalanceCard(disponibleDespuesDeGastos)
             }
 
             item {
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-
                     SummaryCard(
                         modifier = Modifier.weight(1f),
                         title = "Ingreso",
@@ -359,13 +374,21 @@ private fun DashboardScreen() {
             }
 
             item {
+                SummaryCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    title = "Gastos",
+                    value = money(gastosDesdeUltimoIngreso),
+                    color = ValtisRed
+                )
+            }
+
+            item {
                 SectionTitle("Próximos compromisos")
             }
 
             if (financialResult.commitments.isEmpty()) {
 
                 item {
-
                     EmptyCard(
                         title = "Sin compromisos registrados",
                         message = "Agrega tus próximos pagos para que VALTIS pueda calcular cuánto apartar."
@@ -376,7 +399,8 @@ private fun DashboardScreen() {
 
                 items(financialResult.commitments.size) { index ->
 
-                    val commitment = financialResult.commitments[index]
+                    val commitment =
+                        financialResult.commitments[index]
 
                     CommitmentCard(commitment)
                 }
@@ -387,7 +411,6 @@ private fun DashboardScreen() {
             }
 
             item {
-
                 EmptyCard(
                     title = ultimoIngreso!!.concepto,
                     message = "Último ingreso registrado: ${money(ultimoIngreso!!.monto)}"

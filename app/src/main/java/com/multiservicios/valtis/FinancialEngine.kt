@@ -5,6 +5,7 @@ data class ValtisDeposit(
 )
 
 data class ValtisCommitment(
+    val id: Long,
     val name: String,
     val amount: Double,
     val depositsUntilDue: Int,
@@ -12,6 +13,7 @@ data class ValtisCommitment(
 )
 
 data class ValtisCommitmentResult(
+    val id: Long,
     val name: String,
     val pendingAmount: Double,
     val recommendedSetAside: Double,
@@ -45,9 +47,11 @@ object FinancialEngine {
                         .coerceAtLeast(0.0)
 
                 val deposits =
-                    commitment.depositsUntilDue.coerceAtLeast(1)
+                    commitment.depositsUntilDue
+                        .coerceAtLeast(1)
 
-                val recommended = pending / deposits
+                val recommended =
+                    pending / deposits
 
                 val actualSetAside =
                     minOf(available, recommended)
@@ -55,10 +59,12 @@ object FinancialEngine {
                 available -= actualSetAside
 
                 results += ValtisCommitmentResult(
+                    id = commitment.id,
                     name = commitment.name,
                     pendingAmount = pending,
                     recommendedSetAside = actualSetAside,
-                    remainingAmount = pending - actualSetAside
+                    remainingAmount =
+                        pending - actualSetAside
                 )
             }
 
